@@ -251,67 +251,6 @@ app.layout = html.Div(
                 ),
             ],
         ),
-        html.Div(
-            className="grid",
-            children=[
-                html.Div(
-                    className="panel span-7",
-                    children=[
-                        html.Div("ยอดขายตามช่วงเวลา", className="panel-title"),
-                        dcc.Graph(id="sales-trend", className="graph"),
-                    ],
-                ),
-                html.Div(
-                    className="panel span-5",
-                    children=[
-                        html.Div("ยอดขายตาม Platform", className="panel-title"),
-                        dcc.Graph(id="sales-platform", className="graph"),
-                    ],
-                ),
-                html.Div(
-                    className="panel span-5",
-                    children=[
-                        html.Div("ยอดขายตาม Product Group", className="panel-title"),
-                        dcc.Graph(id="sales-group", className="graph"),
-                    ],
-                ),
-                html.Div(
-                    className="panel span-7",
-                    children=[
-                        html.Div("ลูกค้าใหม่ / ลูกค้าเก่า", className="panel-title"),
-                        dcc.Graph(id="customer-mix", className="graph"),
-                    ],
-                ),
-                html.Div(
-                    className="panel span-6",
-                    children=[
-                        html.Div("เปรียบเทียบรายเดือน: ลูกค้าใหม่", className="panel-title"),
-                        dcc.Graph(id="customer-monthly", className="graph"),
-                    ],
-                ),
-                html.Div(
-                    className="panel span-6",
-                    children=[
-                        html.Div("ยอดขายแยกรายสินค้า (มูลค่า)", className="panel-title"),
-                        dcc.Graph(id="product-sales", className="graph"),
-                    ],
-                ),
-                html.Div(
-                    className="panel span-6",
-                    children=[
-                        html.Div("ยอดขายแยกรายสินค้า (จำนวนชิ้น)", className="panel-title"),
-                        dcc.Graph(id="product-qty", className="graph"),
-                    ],
-                ),
-                html.Div(
-                    className="panel span-6",
-                    children=[
-                        html.Div("เปรียบเทียบรายเดือน: รายสินค้า", className="panel-title"),
-                        dcc.Graph(id="product-monthly", className="graph"),
-                    ],
-                ),
-            ],
-        ),
     ],
 )
 
@@ -360,9 +299,9 @@ def refresh_dashboard(period, start_date, end_date, platforms, groups):
     new_customers = (filtered_orders["customer_status"] == "New").sum()
     new_share = (new_customers / total_orders) * 100 if total_orders else 0
 
-    kpi_sales = f"฿{total_sales:,.0f}"
+    kpi_sales = f"THB {total_sales:,.0f}"
     kpi_orders = f"{total_orders:,}"
-    kpi_aov = f"฿{aov:,.0f}"
+    kpi_aov = f"THB {aov:,.0f}"
     kpi_new = f"{new_customers:,} ({new_share:.0f}%)"
 
     grouped_orders, label = group_period(filtered_orders.copy(), "monthly" if period == "monthly" else "daily")
