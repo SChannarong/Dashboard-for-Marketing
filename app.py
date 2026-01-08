@@ -257,56 +257,56 @@ app.layout = html.Div(
                 html.Div(
                     className="panel span-7",
                     children=[
-                        html.Div("¬Õ¥¢“¬µ“¡™Ë«ß‡«≈“", className="panel-title"),
+                        html.Div("‡∏¢‡∏≠‡∏î‡∏Ç‡∏≤‡∏¢‡∏ï‡∏≤‡∏°‡∏ä‡πà‡∏ß‡∏á‡πÄ‡∏ß‡∏•‡∏≤", className="panel-title"),
                         dcc.Graph(id="sales-trend", className="graph"),
                     ],
                 ),
                 html.Div(
                     className="panel span-5",
                     children=[
-                        html.Div("¬Õ¥¢“¬µ“¡ Platform", className="panel-title"),
+                        html.Div("‡∏¢‡∏≠‡∏î‡∏Ç‡∏≤‡∏¢‡∏ï‡∏≤‡∏° Platform", className="panel-title"),
                         dcc.Graph(id="sales-platform", className="graph"),
                     ],
                 ),
                 html.Div(
                     className="panel span-5",
                     children=[
-                        html.Div("¬Õ¥¢“¬µ“¡ Product Group", className="panel-title"),
+                        html.Div("‡∏¢‡∏≠‡∏î‡∏Ç‡∏≤‡∏¢‡∏ï‡∏≤‡∏° Product Group", className="panel-title"),
                         dcc.Graph(id="sales-group", className="graph"),
                     ],
                 ),
                 html.Div(
                     className="panel span-7",
                     children=[
-                        html.Div("≈Ÿ°§È“„À¡Ë / ≈Ÿ°§È“‡°Ë“", className="panel-title"),
+                        html.Div("‡∏•‡∏π‡∏Å‡∏Ñ‡πâ‡∏≤‡πÉ‡∏´‡∏°‡πà / ‡∏•‡∏π‡∏Å‡∏Ñ‡πâ‡∏≤‡πÄ‡∏Å‡πà‡∏≤", className="panel-title"),
                         dcc.Graph(id="customer-mix", className="graph"),
                     ],
                 ),
                 html.Div(
                     className="panel span-6",
                     children=[
-                        html.Div("‡ª√’¬∫‡∑’¬∫√“¬‡¥◊Õπ: ≈Ÿ°§È“„À¡Ë", className="panel-title"),
+                        html.Div("‡πÄ‡∏õ‡∏£‡∏µ‡∏¢‡∏ö‡πÄ‡∏ó‡∏µ‡∏¢‡∏ö‡∏£‡∏≤‡∏¢‡πÄ‡∏î‡∏∑‡∏≠‡∏ô: ‡∏•‡∏π‡∏Å‡∏Ñ‡πâ‡∏≤‡πÉ‡∏´‡∏°‡πà", className="panel-title"),
                         dcc.Graph(id="customer-monthly", className="graph"),
                     ],
                 ),
                 html.Div(
                     className="panel span-6",
                     children=[
-                        html.Div("¬Õ¥¢“¬·¬°√“¬ ‘π§È“ (¡Ÿ≈§Ë“)", className="panel-title"),
+                        html.Div("‡∏¢‡∏≠‡∏î‡∏Ç‡∏≤‡∏¢‡πÅ‡∏¢‡∏Å‡∏£‡∏≤‡∏¢‡∏™‡∏¥‡∏ô‡∏Ñ‡πâ‡∏≤ (‡∏°‡∏π‡∏•‡∏Ñ‡πà‡∏≤)", className="panel-title"),
                         dcc.Graph(id="product-sales", className="graph"),
                     ],
                 ),
                 html.Div(
                     className="panel span-6",
                     children=[
-                        html.Div("¬Õ¥¢“¬·¬°√“¬ ‘π§È“ (®”π«π™‘Èπ)", className="panel-title"),
+                        html.Div("‡∏¢‡∏≠‡∏î‡∏Ç‡∏≤‡∏¢‡πÅ‡∏¢‡∏Å‡∏£‡∏≤‡∏¢‡∏™‡∏¥‡∏ô‡∏Ñ‡πâ‡∏≤ (‡∏à‡∏≥‡∏ô‡∏ß‡∏ô‡∏ä‡∏¥‡πâ‡∏ô)", className="panel-title"),
                         dcc.Graph(id="product-qty", className="graph"),
                     ],
                 ),
                 html.Div(
                     className="panel span-6",
                     children=[
-                        html.Div("‡ª√’¬∫‡∑’¬∫√“¬‡¥◊Õπ: √“¬ ‘π§È“", className="panel-title"),
+                        html.Div("‡πÄ‡∏õ‡∏£‡∏µ‡∏¢‡∏ö‡πÄ‡∏ó‡∏µ‡∏¢‡∏ö‡∏£‡∏≤‡∏¢‡πÄ‡∏î‡∏∑‡∏≠‡∏ô: ‡∏£‡∏≤‡∏¢‡∏™‡∏¥‡∏ô‡∏Ñ‡πâ‡∏≤", className="panel-title"),
                         dcc.Graph(id="product-monthly", className="graph"),
                     ],
                 ),
@@ -360,9 +360,9 @@ def refresh_dashboard(period, start_date, end_date, platforms, groups):
     new_customers = (filtered_orders["customer_status"] == "New").sum()
     new_share = (new_customers / total_orders) * 100 if total_orders else 0
 
-    kpi_sales = f"ﬂ{total_sales:,.0f}"
+    kpi_sales = f"‡∏ø{total_sales:,.0f}"
     kpi_orders = f"{total_orders:,}"
-    kpi_aov = f"ﬂ{aov:,.0f}"
+    kpi_aov = f"‡∏ø{aov:,.0f}"
     kpi_new = f"{new_customers:,} ({new_share:.0f}%)"
 
     grouped_orders, label = group_period(filtered_orders.copy(), "monthly" if period == "monthly" else "daily")
