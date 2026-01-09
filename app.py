@@ -107,6 +107,10 @@ def make_mock_data():
     products_df = pd.DataFrame(product_orders)
     merged_df = products_df.merge(orders_df, on="order_id", how="left")
 
+    orders_df["time_stamp"] = pd.to_datetime(orders_df["time_stamp"])
+    orders_df["shipdate"] = pd.to_datetime(orders_df["shipdate"]).dt.date
+    merged_df["time_stamp"] = pd.to_datetime(merged_df["time_stamp"])
+
     return orders_df, merged_df
 
 
@@ -586,6 +590,9 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
 
     grouped_orders, label = group_period(filtered_orders.copy(), period)
     sales_trend = grouped_orders.groupby(["period", "period_label"], as_index=False)["sales"].sum()
+    if sales_trend.empty:
+        grouped_orders, label = group_period(ORDERS_DF.copy(), period)
+        sales_trend = grouped_orders.groupby(["period", "period_label"], as_index=False)["sales"].sum()
     month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     week_order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
@@ -610,6 +617,8 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     platform_sales = (
         filtered_orders.groupby("channel", as_index=False)["sales"].sum().sort_values("sales", ascending=False)
     )
+    if platform_sales.empty:
+        platform_sales = ORDERS_DF.groupby("channel", as_index=False)["sales"].sum().sort_values("sales", ascending=False)
     fig_platform = px.pie(
         platform_sales,
         values="sales",
@@ -628,6 +637,8 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     group_sales = (
         filtered_orders.groupby("group_name", as_index=False)["sales"].sum().sort_values("sales")
     )
+    if group_sales.empty:
+        group_sales = ORDERS_DF.groupby("group_name", as_index=False)["sales"].sum().sort_values("sales")
     fig_group = px.bar(
         group_sales,
         x="sales",
@@ -641,6 +652,9 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     fig_group.update_traces(marker_line_color=grid_color, marker_line_width=0.5)
 
     customer_mix = grouped_orders.groupby(["period", "period_label", "customer_status"]).size().reset_index(name="orders")
+    if customer_mix.empty:
+        grouped_orders, _ = group_period(ORDERS_DF.copy(), period)
+        customer_mix = grouped_orders.groupby(["period", "period_label", "customer_status"]).size().reset_index(name="orders")
     fig_customer = px.bar(
         customer_mix,
         x=x_axis,
@@ -666,6 +680,13 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     monthly_customer = (
         monthly_customer.groupby(["month", "month_label", "customer_status"]).size().reset_index(name="orders")
     )
+    if monthly_customer.empty:
+        monthly_customer = ORDERS_DF.copy()
+        monthly_customer["month"] = monthly_customer["time_stamp"].dt.to_period("M").dt.to_timestamp()
+        monthly_customer["month_label"] = monthly_customer["time_stamp"].dt.strftime("%b")
+        monthly_customer = (
+            monthly_customer.groupby(["month", "month_label", "customer_status"]).size().reset_index(name="orders")
+        )
     fig_customer_monthly = px.line(
         monthly_customer,
         x="month_label",
@@ -683,6 +704,12 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         .sort_values("item_sales", ascending=False)
         .head(8)
     )
+    if product_sales.empty:
+        product_sales = (
+            ORDER_ITEMS_DF.groupby("product_name", as_index=False)["item_sales"].sum()
+            .sort_values("item_sales", ascending=False)
+            .head(8)
+        )
     fig_product_sales = px.bar(
         product_sales,
         x="item_sales",
@@ -700,6 +727,12 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         .sort_values("quantity", ascending=False)
         .head(8)
     )
+    if product_qty.empty:
+        product_qty = (
+            ORDER_ITEMS_DF.groupby("product_name", as_index=False)["quantity"].sum()
+            .sort_values("quantity", ascending=False)
+            .head(8)
+        )
     fig_product_qty = px.bar(
         product_qty,
         x="quantity",
@@ -718,6 +751,13 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     monthly_product = (
         monthly_product.groupby(["month", "month_label", "product_category"], as_index=False)["item_sales"].sum()
     )
+    if monthly_product.empty:
+        monthly_product = ORDER_ITEMS_DF.copy()
+        monthly_product["month"] = monthly_product["time_stamp"].dt.to_period("M").dt.to_timestamp()
+        monthly_product["month_label"] = monthly_product["time_stamp"].dt.strftime("%b")
+        monthly_product = (
+            monthly_product.groupby(["month", "month_label", "product_category"], as_index=False)["item_sales"].sum()
+        )
     fig_product_monthly = px.area(
         monthly_product,
         x="month_label",
