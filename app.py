@@ -260,6 +260,7 @@ app.layout = html.Div(
                         html.Div(
                             id="year-range-wrapper",
                             style={"display": "none"},
+                            className="year-range",
                             children=[
                                 dcc.Dropdown(
                                     id="year-select",
@@ -268,12 +269,17 @@ app.layout = html.Div(
                                     clearable=False,
                                     className="dropdown",
                                 ),
-                                dcc.Dropdown(
-                                    id="month-select",
-                                    options=[{"label": m, "value": m} for m in MONTH_ORDER],
-                                    value=MONTH_ORDER,
-                                    multi=True,
-                                    className="dropdown",
+                                html.Details(
+                                    className="month-dropdown",
+                                    children=[
+                                        html.Summary(f"Selected months: {len(MONTH_ORDER)}", id="month-summary"),
+                                        dcc.Checklist(
+                                            id="month-checklist",
+                                            options=[{"label": m, "value": m} for m in MONTH_ORDER],
+                                            value=MONTH_ORDER,
+                                            className="checklist month-checklist",
+                                        ),
+                                    ],
                                 ),
                             ],
                         ),
@@ -559,6 +565,15 @@ def switch_theme(theme_value):
 
 
 @app.callback(
+    Output("month-summary", "children"),
+    [Input("month-checklist", "value")],
+)
+def update_month_summary(selected_months):
+    count = len(selected_months) if selected_months else 0
+    return f"Selected months: {count}"
+
+
+@app.callback(
     Output("week-offset", "data"),
     [
         Input("week-prev", "n_clicks"),
@@ -604,7 +619,7 @@ def update_week_offset(prev_clicks, next_clicks, period_value, current_offset):
         Input("date-range", "end_date"),
         Input("year-select", "value"),
         Input("week-offset", "data"),
-        Input("month-select", "value"),
+        Input("month-checklist", "value"),
         Input("platform-filter", "value"),
         Input("group-filter", "value"),
         Input("theme-toggle", "value"),
