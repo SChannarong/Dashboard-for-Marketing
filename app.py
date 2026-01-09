@@ -596,7 +596,8 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     week_order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-    x_axis = "period_label" if period in {"monthly", "daily", "custom"} else "period"
+    x_axis = "period_label"
+    sales_trend = sales_trend[[x_axis, "sales"]]
     fig_sales = px.bar(
         sales_trend,
         x=x_axis,
@@ -651,7 +652,8 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     fig_group.update_layout(bargap=0.2, bargroupgap=0.1)
     fig_group.update_traces(marker_line_color=grid_color, marker_line_width=0.5)
 
-    customer_mix = grouped_orders.groupby(["period", "period_label", "customer_status"]).size().reset_index(name="orders")
+    customer_mix = grouped_orders.groupby(["period_label", "customer_status"]).size().reset_index(name="orders")
+    customer_mix = customer_mix[[x_axis, "customer_status", "orders"]]
     if customer_mix.empty:
         grouped_orders, _ = group_period(ORDERS_DF.copy(), period)
         customer_mix = grouped_orders.groupby(["period", "period_label", "customer_status"]).size().reset_index(name="orders")
@@ -675,17 +677,15 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         fig_customer.update_xaxes(type="category", tickson="boundaries")
 
     monthly_customer = filtered_orders.copy()
-    monthly_customer["month"] = monthly_customer["time_stamp"].dt.to_period("M").dt.to_timestamp()
     monthly_customer["month_label"] = monthly_customer["time_stamp"].dt.strftime("%b")
     monthly_customer = (
-        monthly_customer.groupby(["month", "month_label", "customer_status"]).size().reset_index(name="orders")
+        monthly_customer.groupby(["month_label", "customer_status"]).size().reset_index(name="orders")
     )
     if monthly_customer.empty:
         monthly_customer = ORDERS_DF.copy()
-        monthly_customer["month"] = monthly_customer["time_stamp"].dt.to_period("M").dt.to_timestamp()
         monthly_customer["month_label"] = monthly_customer["time_stamp"].dt.strftime("%b")
         monthly_customer = (
-            monthly_customer.groupby(["month", "month_label", "customer_status"]).size().reset_index(name="orders")
+            monthly_customer.groupby(["month_label", "customer_status"]).size().reset_index(name="orders")
         )
     fig_customer_monthly = px.line(
         monthly_customer,
@@ -746,17 +746,15 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     fig_product_qty.update_traces(marker_line_color=grid_color, marker_line_width=0.5)
 
     monthly_product = filtered_items.copy()
-    monthly_product["month"] = monthly_product["time_stamp"].dt.to_period("M").dt.to_timestamp()
     monthly_product["month_label"] = monthly_product["time_stamp"].dt.strftime("%b")
     monthly_product = (
-        monthly_product.groupby(["month", "month_label", "product_category"], as_index=False)["item_sales"].sum()
+        monthly_product.groupby(["month_label", "product_category"], as_index=False)["item_sales"].sum()
     )
     if monthly_product.empty:
         monthly_product = ORDER_ITEMS_DF.copy()
-        monthly_product["month"] = monthly_product["time_stamp"].dt.to_period("M").dt.to_timestamp()
         monthly_product["month_label"] = monthly_product["time_stamp"].dt.strftime("%b")
         monthly_product = (
-            monthly_product.groupby(["month", "month_label", "product_category"], as_index=False)["item_sales"].sum()
+            monthly_product.groupby(["month_label", "product_category"], as_index=False)["item_sales"].sum()
         )
     fig_product_monthly = px.area(
         monthly_product,
