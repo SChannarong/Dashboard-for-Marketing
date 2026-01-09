@@ -165,6 +165,12 @@ body {
   margin-bottom: 18px;
 }
 
+.tabs-topbar {
+  margin-bottom: 0;
+  align-self: center;
+  margin-top: 4px;
+}
+
 .tab {
   display: inline-flex !important;
   width: auto !important;
@@ -321,6 +327,21 @@ body {
   width: 14px;
   height: 14px;
   margin: 0;
+}
+
+.week-nav {
+  display: none;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.week-btn {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px 12px;
+  font-size: 12px;
 }
 
 .theme-dark .pill-group label {

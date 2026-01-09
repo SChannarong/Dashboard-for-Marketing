@@ -4,7 +4,7 @@ import random
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from dash import Dash, Input, Output, State, dcc, html
+from dash import Dash, Input, Output, State, dcc, html, callback_context
 
 
 random.seed(7)
@@ -30,7 +30,7 @@ def make_mock_data():
     ]
     order_statuses = ["Pending", "Shipped"]
     shipping_methods = ["EMS", "Flash"]
-    purchase_types = ["Normal", "Package"]
+    purchase_types = ["Normal", "Package", "B2B", "Cold.Cafe", "Internal-Use"]
     order_types = ["Normal", "Claim"]
 
     orders = []
@@ -159,6 +159,7 @@ app.layout = html.Div(
     id="app-root",
     className="page theme-light",
     children=[
+        dcc.Store(id="week-offset", data=0),
         html.Div(
             className="topbar",
             children=[
@@ -188,8 +189,6 @@ app.layout = html.Div(
                 html.Div(
                     className="topbar-actions",
                     children=[
-                        html.Div("Moise Sitman", className="user-pill"),
-                        html.Div("Satri", className="user-pill"),
                         dcc.RadioItems(
                             id="theme-toggle",
                             className="theme-toggle",
@@ -222,6 +221,14 @@ app.layout = html.Div(
                             ],
                             value="daily",
                             inline=False,
+                        ),
+                        html.Div(
+                            id="week-nav",
+                            className="week-nav",
+                            children=[
+                                html.Button("Prev", id="week-prev", className="week-btn", n_clicks=0),
+                                html.Button("Next", id="week-next", className="week-btn", n_clicks=0),
+                            ],
                         ),
                     ],
                 ),
@@ -479,30 +486,46 @@ def switch_pages(active_tab):
         Output("date-range", "disabled"),
         Output("date-range", "start_date"),
         Output("date-range", "end_date"),
+        Output("week-nav", "style"),
     ],
-    [Input("period-toggle", "value")],
+    [
+        Input("period-toggle", "value"),
+        Input("week-offset", "data"),
+    ],
     [
         State("date-range", "start_date"),
         State("date-range", "end_date"),
     ],
 )
-def toggle_date_controls(period_value, current_start, current_end):
+def toggle_date_controls(period_value, week_offset, current_start, current_end):
     latest_start = max_date - dt.timedelta(days=max_date.weekday())
     latest_end = latest_start + dt.timedelta(days=6)
+    offset = week_offset or 0
+    offset_start = latest_start - dt.timedelta(days=7 * offset)
+    offset_end = offset_start + dt.timedelta(days=6)
     if period_value == "monthly":
-        return {"display": "none"}, {"display": "block"}, "Year Range", True, current_start, current_end
+        return (
+            {"display": "none"},
+            {"display": "block"},
+            "Year Range",
+            True,
+            current_start,
+            current_end,
+            {"display": "none"},
+        )
     if period_value == "daily":
         return (
             {"display": "block"},
             {"display": "none"},
             "Latest Week",
             True,
-            latest_start.isoformat(),
-            latest_end.isoformat(),
+            offset_start.isoformat(),
+            offset_end.isoformat(),
+            {"display": "flex"},
         )
     start = current_start or min_date.isoformat()
     end = current_end or max_date.isoformat()
-    return {"display": "block"}, {"display": "none"}, "Date Range", False, start, end
+    return {"display": "block"}, {"display": "none"}, "Date Range", False, start, end, {"display": "none"}
 
 
 @app.callback(
@@ -511,6 +534,27 @@ def toggle_date_controls(period_value, current_start, current_end):
 )
 def switch_theme(theme_value):
     return f"page theme-{theme_value}"
+
+
+@app.callback(
+    Output("week-offset", "data"),
+    [
+        Input("week-prev", "n_clicks"),
+        Input("week-next", "n_clicks"),
+        Input("period-toggle", "value"),
+    ],
+    [State("week-offset", "data")],
+)
+def update_week_offset(prev_clicks, next_clicks, period_value, current_offset):
+    if period_value != "daily":
+        return 0
+    offset = current_offset or 0
+    triggered = callback_context.triggered[0]["prop_id"].split(".")[0]
+    if triggered == "week-prev":
+        return offset + 1
+    if triggered == "week-next":
+        return max(0, offset - 1)
+    return 0
 
 
 @app.callback(
@@ -537,20 +581,22 @@ def switch_theme(theme_value):
         Input("date-range", "start_date"),
         Input("date-range", "end_date"),
         Input("year-select", "value"),
+        Input("week-offset", "data"),
         Input("platform-filter", "value"),
         Input("group-filter", "value"),
         Input("theme-toggle", "value"),
     ],
 )
 
-def refresh_dashboard(period, start_date, end_date, selected_year, platforms, groups, theme_value):
+def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, platforms, groups, theme_value):
     if period == "monthly":
         year = selected_year or default_year
         start = dt.date(year, 1, 1)
         end = dt.date(year, 12, 31)
     elif period == "daily":
         latest = max_date
-        start = latest - dt.timedelta(days=latest.weekday())
+        offset = week_offset or 0
+        start = (latest - dt.timedelta(days=latest.weekday())) - dt.timedelta(days=7 * offset)
         end = start + dt.timedelta(days=6)
     else:
         start = pd.to_datetime(start_date).date() if start_date else min_date
@@ -564,14 +610,10 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     filtered_orders = apply_date_filter(ORDERS_DF, start, end)
     filtered_orders = filtered_orders[filtered_orders["channel"].isin(platforms)]
     filtered_orders = filtered_orders[filtered_orders["group_name"].isin(groups)]
-    if filtered_orders.empty:
-        filtered_orders = ORDERS_DF.copy()
 
     filtered_items = ORDER_ITEMS_DF.merge(
         filtered_orders[["order_id"]], on="order_id", how="inner"
     )
-    if filtered_items.empty:
-        filtered_items = ORDER_ITEMS_DF.copy()
 
     total_sales = filtered_orders["sales"].sum()
     total_orders = filtered_orders["order_id"].nunique()
@@ -587,6 +629,9 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     font_color = "#ffffff" if is_dark else "#000000"
     grid_color = font_color
     legend_bg = "rgba(16,14,12,0.7)" if is_dark else "rgba(255,255,255,0.6)"
+    hover_bg = "#111111" if is_dark else "#ffffff"
+    hover_font = "#ffffff" if is_dark else "#000000"
+    hover_border = "#ffffff" if is_dark else "#000000"
 
     month_map = {
         1: "Jan",
@@ -615,8 +660,6 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     week_order = list(day_map.values())
 
     orders_for_charts = filtered_orders.copy()
-    if orders_for_charts.empty:
-        orders_for_charts = ORDERS_DF.copy()
 
     if period == "monthly":
         orders_for_charts["period_label"] = orders_for_charts["time_stamp"].dt.month.map(month_map)
@@ -682,6 +725,7 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         labels={"sales": "Sales", "group_name": "Group"},
     )
     fig_group.update_layout(margin=dict(l=20, r=10, t=10, b=20))
+    fig_group.update_yaxes(categoryorder="total descending")
 
     customer_mix = (
         orders_for_charts.groupby(["period_label", "customer_status"])
@@ -713,6 +757,14 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         .size()
         .reset_index(name="orders")
     )
+    month_index = pd.MultiIndex.from_product(
+        [month_order, ["New", "Returning"]], names=["month_label", "customer_status"]
+    )
+    monthly_customer = (
+        monthly_customer.set_index(["month_label", "customer_status"])
+        .reindex(month_index, fill_value=0)
+        .reset_index()
+    )
     fig_customer_monthly = px.line(
         monthly_customer,
         x="month_label",
@@ -726,8 +778,6 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     fig_customer_monthly.update_xaxes(categoryorder="array", categoryarray=month_order)
 
     items_for_charts = filtered_items.copy()
-    if items_for_charts.empty:
-        items_for_charts = ORDER_ITEMS_DF.copy()
 
     product_sales = (
         items_for_charts.groupby("product_name", as_index=False)["item_sales"].sum()
@@ -743,6 +793,7 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         labels={"item_sales": "Sales", "product_name": "Product"},
     )
     fig_product_sales.update_layout(margin=dict(l=20, r=10, t=10, b=20))
+    fig_product_sales.update_yaxes(categoryorder="total descending")
 
     product_qty = (
         items_for_charts.groupby("product_name", as_index=False)["quantity"].sum()
@@ -758,6 +809,7 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         labels={"quantity": "Units", "product_name": "Product"},
     )
     fig_product_qty.update_layout(margin=dict(l=20, r=10, t=10, b=20))
+    fig_product_qty.update_yaxes(categoryorder="total descending")
 
     monthly_product = items_for_charts.copy()
     monthly_product["month_label"] = monthly_product["time_stamp"].dt.month.map(month_map)
@@ -793,6 +845,11 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
             hovermode="x unified",
             legend_title_text="",
             legend_bgcolor=legend_bg,
+            hoverlabel=dict(
+                bgcolor=hover_bg,
+                font=dict(color=hover_font),
+                bordercolor=hover_border,
+            ),
         )
         fig.update_xaxes(
             showgrid=False,
@@ -803,6 +860,7 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         fig.update_yaxes(
             showgrid=True,
             gridcolor=grid_color,
+            gridwidth=1,
             tickfont=dict(color=font_color),
             titlefont=dict(color=font_color),
         )
