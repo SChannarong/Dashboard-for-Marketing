@@ -205,10 +205,13 @@ body {
 }
 
 .dropdown .Select--multi .Select-value {
-  background: var(--accent-soft);
-  border: 1px solid var(--border);
+  background: transparent;
+  border: 1px solid var(--text);
   border-radius: 12px;
   color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  flex-direction: row-reverse;
 }
 
 .dropdown .Select--multi .Select-value-label,
@@ -217,7 +220,41 @@ body {
 }
 
 .dropdown .Select--multi .Select-value-icon {
-  border-right: 1px solid var(--border);
+  border-right: none;
+  border-left: 1px solid var(--text);
+  margin-left: 6px;
+}
+
+.dropdown .Select-value-label {
+  white-space: nowrap;
+}
+
+.dropdown .Select--multi .Select-value {
+  margin-right: 6px;
+}
+
+.dropdown .Select--multi .Select-value-icon {
+  margin-right: 4px;
+}
+
+.dropdown .Select-control {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.dropdown .Select-multi-value-wrapper {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 6px;
+  align-items: center;
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+
+.dropdown .Select--multi .Select-value {
+  flex: 0 0 auto;
 }
 
 .dropdown .Select-menu-outer {
@@ -250,6 +287,11 @@ body {
   font-size: 12px;
 }
 
+.theme-dark .pill-group label {
+  background: #1c1a19;
+  color: var(--text);
+}
+
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -279,6 +321,42 @@ body {
 .kpi-foot {
   font-size: 11px;
   color: var(--muted);
+}
+
+.theme-dark .kpi-foot,
+.theme-dark .control-title,
+.theme-dark .panel-title,
+.theme-dark .brand-subtitle,
+.theme-dark .user-pill,
+.theme-dark .nav-pill,
+.theme-dark .tab {
+  color: var(--text) !important;
+}
+
+.theme-dark .DateInput_input,
+.theme-dark .DateInput_input__focused,
+.theme-dark .DateRangePickerInput__showClearDates,
+.theme-dark .DateRangePickerInput,
+.theme-dark .DateRangePickerInput__withBorder {
+  background: var(--panel) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+.theme-dark .CalendarDay__default,
+.theme-dark .CalendarDay__default:hover,
+.theme-dark .CalendarDay__selected,
+.theme-dark .CalendarDay__selected:hover,
+.theme-dark .CalendarDay__selected_span {
+  background: #1c1a19 !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+.theme-dark .DayPickerNavigation_button__default {
+  border: 1px solid var(--border) !important;
+  background: var(--panel) !important;
+  color: var(--text) !important;
 }
 
 .grid {
