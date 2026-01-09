@@ -588,34 +588,50 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     grid_color = font_color
     legend_bg = "rgba(16,14,12,0.7)" if is_dark else "rgba(255,255,255,0.6)"
 
-    grouped_orders, label = group_period(filtered_orders.copy(), period)
-    sales_trend = grouped_orders.groupby(["period", "period_label"], as_index=False)["sales"].sum()
-    if sales_trend.empty:
-        grouped_orders, label = group_period(ORDERS_DF.copy(), period)
-        sales_trend = grouped_orders.groupby(["period", "period_label"], as_index=False)["sales"].sum()
     month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     week_order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-    x_axis = "period_label"
-    sales_trend = sales_trend[[x_axis, "sales"]]
+    orders_for_charts = filtered_orders.copy()
+    if orders_for_charts.empty:
+        orders_for_charts = ORDERS_DF.copy()
+
+    if period == "monthly":
+        orders_for_charts["period_label"] = orders_for_charts["time_stamp"].dt.strftime("%b")
+        period_label_title = "Month"
+        x_order = month_order
+    elif period == "daily":
+        orders_for_charts["period_label"] = orders_for_charts["time_stamp"].dt.strftime("%a")
+        period_label_title = "Day"
+        x_order = week_order
+    else:
+        orders_for_charts["period_date"] = orders_for_charts["time_stamp"].dt.date
+        orders_for_charts["period_label"] = orders_for_charts["time_stamp"].dt.strftime("%d %b %Y")
+        period_label_title = "Date"
+        x_order = (
+            orders_for_charts.drop_duplicates("period_date")
+            .sort_values("period_date")["period_label"]
+            .tolist()
+        )
+
+    sales_trend = orders_for_charts.groupby("period_label", as_index=False)["sales"].sum()
+    if x_order:
+        sales_trend = sales_trend.set_index("period_label").reindex(x_order).reset_index()
     fig_sales = px.bar(
         sales_trend,
-        x=x_axis,
+        x="period_label",
         y="sales",
         color_discrete_sequence=["#4979ff"],
-        labels={x_axis: label, "sales": "Sales"},
+        labels={"period_label": period_label_title, "sales": "Sales"},
     )
     fig_sales.update_layout(margin=dict(l=10, r=10, t=10, b=20))
-    if period == "monthly":
-        fig_sales.update_xaxes(categoryorder="array", categoryarray=month_order)
-    if period == "daily":
-        fig_sales.update_xaxes(categoryorder="array", categoryarray=week_order)
+    if x_order:
+        fig_sales.update_xaxes(categoryorder="array", categoryarray=x_order)
 
     platform_sales = (
-        filtered_orders.groupby("channel", as_index=False)["sales"].sum().sort_values("sales", ascending=False)
+        orders_for_charts.groupby("channel", as_index=False)["sales"]
+        .sum()
+        .sort_values("sales", ascending=False)
     )
-    if platform_sales.empty:
-        platform_sales = ORDERS_DF.groupby("channel", as_index=False)["sales"].sum().sort_values("sales", ascending=False)
     fig_platform = px.pie(
         platform_sales,
         values="sales",
@@ -632,10 +648,8 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     fig_platform.update_layout(margin=dict(l=10, r=10, t=10, b=10), showlegend=True)
 
     group_sales = (
-        filtered_orders.groupby("group_name", as_index=False)["sales"].sum().sort_values("sales")
+        orders_for_charts.groupby("group_name", as_index=False)["sales"].sum().sort_values("sales")
     )
-    if group_sales.empty:
-        group_sales = ORDERS_DF.groupby("group_name", as_index=False)["sales"].sum().sort_values("sales")
     fig_group = px.bar(
         group_sales,
         x="sales",
@@ -646,37 +660,36 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     )
     fig_group.update_layout(margin=dict(l=20, r=10, t=10, b=20))
 
-    customer_mix = grouped_orders.groupby(["period_label", "customer_status"]).size().reset_index(name="orders")
-    customer_mix = customer_mix[[x_axis, "customer_status", "orders"]]
-    if customer_mix.empty:
-        grouped_orders, _ = group_period(ORDERS_DF.copy(), period)
-        customer_mix = grouped_orders.groupby(["period", "period_label", "customer_status"]).size().reset_index(name="orders")
+    customer_mix = (
+        orders_for_charts.groupby(["period_label", "customer_status"])
+        .size()
+        .reset_index(name="orders")
+    )
+    if x_order:
+        customer_mix["period_label"] = pd.Categorical(
+            customer_mix["period_label"], categories=x_order, ordered=True
+        )
+        customer_mix = customer_mix.sort_values("period_label")
     fig_customer = px.bar(
         customer_mix,
-        x=x_axis,
+        x="period_label",
         y="orders",
         color="customer_status",
         barmode="stack",
         color_discrete_map={"New": "#4f7cff", "Returning": "#b8c6ff"},
-        labels={x_axis: label, "orders": "Orders"},
+        labels={"period_label": period_label_title, "orders": "Orders"},
     )
     fig_customer.update_layout(margin=dict(l=10, r=10, t=10, b=20))
-    if period == "monthly":
-        fig_customer.update_xaxes(categoryorder="array", categoryarray=month_order)
-    if period == "daily":
-        fig_customer.update_xaxes(categoryorder="array", categoryarray=week_order)
+    if x_order:
+        fig_customer.update_xaxes(categoryorder="array", categoryarray=x_order)
 
-    monthly_customer = filtered_orders.copy()
+    monthly_customer = orders_for_charts.copy()
     monthly_customer["month_label"] = monthly_customer["time_stamp"].dt.strftime("%b")
     monthly_customer = (
-        monthly_customer.groupby(["month_label", "customer_status"]).size().reset_index(name="orders")
+        monthly_customer.groupby(["month_label", "customer_status"])
+        .size()
+        .reset_index(name="orders")
     )
-    if monthly_customer.empty:
-        monthly_customer = ORDERS_DF.copy()
-        monthly_customer["month_label"] = monthly_customer["time_stamp"].dt.strftime("%b")
-        monthly_customer = (
-            monthly_customer.groupby(["month_label", "customer_status"]).size().reset_index(name="orders")
-        )
     fig_customer_monthly = px.line(
         monthly_customer,
         x="month_label",
@@ -689,17 +702,15 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     fig_customer_monthly.update_layout(margin=dict(l=10, r=10, t=10, b=20))
     fig_customer_monthly.update_xaxes(categoryorder="array", categoryarray=month_order)
 
+    items_for_charts = filtered_items.copy()
+    if items_for_charts.empty:
+        items_for_charts = ORDER_ITEMS_DF.copy()
+
     product_sales = (
-        filtered_items.groupby("product_name", as_index=False)["item_sales"].sum()
+        items_for_charts.groupby("product_name", as_index=False)["item_sales"].sum()
         .sort_values("item_sales", ascending=False)
         .head(8)
     )
-    if product_sales.empty:
-        product_sales = (
-            ORDER_ITEMS_DF.groupby("product_name", as_index=False)["item_sales"].sum()
-            .sort_values("item_sales", ascending=False)
-            .head(8)
-        )
     fig_product_sales = px.bar(
         product_sales,
         x="item_sales",
@@ -711,16 +722,10 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     fig_product_sales.update_layout(margin=dict(l=20, r=10, t=10, b=20))
 
     product_qty = (
-        filtered_items.groupby("product_name", as_index=False)["quantity"].sum()
+        items_for_charts.groupby("product_name", as_index=False)["quantity"].sum()
         .sort_values("quantity", ascending=False)
         .head(8)
     )
-    if product_qty.empty:
-        product_qty = (
-            ORDER_ITEMS_DF.groupby("product_name", as_index=False)["quantity"].sum()
-            .sort_values("quantity", ascending=False)
-            .head(8)
-        )
     fig_product_qty = px.bar(
         product_qty,
         x="quantity",
@@ -731,17 +736,11 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     )
     fig_product_qty.update_layout(margin=dict(l=20, r=10, t=10, b=20))
 
-    monthly_product = filtered_items.copy()
+    monthly_product = items_for_charts.copy()
     monthly_product["month_label"] = monthly_product["time_stamp"].dt.strftime("%b")
     monthly_product = (
         monthly_product.groupby(["month_label", "product_category"], as_index=False)["item_sales"].sum()
     )
-    if monthly_product.empty:
-        monthly_product = ORDER_ITEMS_DF.copy()
-        monthly_product["month_label"] = monthly_product["time_stamp"].dt.strftime("%b")
-        monthly_product = (
-            monthly_product.groupby(["month_label", "product_category"], as_index=False)["item_sales"].sum()
-        )
     fig_product_monthly = px.area(
         monthly_product,
         x="month_label",
