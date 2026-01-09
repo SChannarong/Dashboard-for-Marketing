@@ -665,8 +665,8 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     fig_platform.update_traces(
         textposition="inside",
         textinfo="percent+label",
-        textangle=0,
         textfont_color=font_color,
+        insidetextorientation="horizontal",
     )
     fig_platform.update_layout(margin=dict(l=10, r=10, t=10, b=10), showlegend=True)
 
