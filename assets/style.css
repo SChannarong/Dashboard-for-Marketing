@@ -91,9 +91,8 @@ body {
 }
 
 .tabs-topbar {
-  flex: 1;
-  max-width: 620px;
-  margin: 0 18px;
+  flex: 0 1 auto;
+  margin: 0 12px;
 }
 
 .nav-pill {
@@ -114,6 +113,15 @@ body {
   display: flex;
   gap: 10px;
   align-items: center;
+}
+
+.topbar-actions,
+.brand {
+  min-width: 220px;
+}
+
+.tabs-topbar .tab {
+  margin: 0 4px !important;
 }
 
 .theme-toggle label {
