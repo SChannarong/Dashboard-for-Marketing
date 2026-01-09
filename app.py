@@ -588,19 +588,42 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     grid_color = font_color
     legend_bg = "rgba(16,14,12,0.7)" if is_dark else "rgba(255,255,255,0.6)"
 
-    month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    week_order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    month_map = {
+        1: "Jan",
+        2: "Feb",
+        3: "Mar",
+        4: "Apr",
+        5: "May",
+        6: "Jun",
+        7: "Jul",
+        8: "Aug",
+        9: "Sep",
+        10: "Oct",
+        11: "Nov",
+        12: "Dec",
+    }
+    day_map = {
+        0: "Mon",
+        1: "Tue",
+        2: "Wed",
+        3: "Thu",
+        4: "Fri",
+        5: "Sat",
+        6: "Sun",
+    }
+    month_order = list(month_map.values())
+    week_order = list(day_map.values())
 
     orders_for_charts = filtered_orders.copy()
     if orders_for_charts.empty:
         orders_for_charts = ORDERS_DF.copy()
 
     if period == "monthly":
-        orders_for_charts["period_label"] = orders_for_charts["time_stamp"].dt.strftime("%b")
+        orders_for_charts["period_label"] = orders_for_charts["time_stamp"].dt.month.map(month_map)
         period_label_title = "Month"
         x_order = month_order
     elif period == "daily":
-        orders_for_charts["period_label"] = orders_for_charts["time_stamp"].dt.strftime("%a")
+        orders_for_charts["period_label"] = orders_for_charts["time_stamp"].dt.dayofweek.map(day_map)
         period_label_title = "Day"
         x_order = week_order
     else:
@@ -684,7 +707,7 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         fig_customer.update_xaxes(categoryorder="array", categoryarray=x_order)
 
     monthly_customer = orders_for_charts.copy()
-    monthly_customer["month_label"] = monthly_customer["time_stamp"].dt.strftime("%b")
+    monthly_customer["month_label"] = monthly_customer["time_stamp"].dt.month.map(month_map)
     monthly_customer = (
         monthly_customer.groupby(["month_label", "customer_status"])
         .size()
@@ -737,7 +760,7 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     fig_product_qty.update_layout(margin=dict(l=20, r=10, t=10, b=20))
 
     monthly_product = items_for_charts.copy()
-    monthly_product["month_label"] = monthly_product["time_stamp"].dt.strftime("%b")
+    monthly_product["month_label"] = monthly_product["time_stamp"].dt.month.map(month_map)
     monthly_product = (
         monthly_product.groupby(["month_label", "product_category"], as_index=False)["item_sales"].sum()
     )
