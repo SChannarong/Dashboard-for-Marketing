@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans:wght@300;400;600;700&display=swap");
+
 :root {
   --bg: #f6f1ed;
   --panel: #fdfaf7;
@@ -19,7 +21,7 @@ body {
   margin: 0;
   background: radial-gradient(circle at top, #f8f4f1 0%, #efe6e1 60%, #eadfda 100%);
   color: var(--text);
-  font-family: "Palatino Linotype", "Trebuchet MS", serif;
+  font-family: "Noto Sans", "Segoe UI", Arial, sans-serif;
 }
 
 .page {
@@ -107,6 +109,24 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 16px;
   margin-bottom: 18px;
+}
+
+.tabs {
+  margin-bottom: 18px;
+}
+
+.tab {
+  padding: 10px 18px !important;
+  border-radius: 18px !important;
+  border: 1px solid var(--border) !important;
+  background: var(--panel) !important;
+  font-size: 13px;
+}
+
+.tab-selected {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
 }
 
 .control-card {

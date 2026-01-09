@@ -15,10 +15,8 @@ APP_TITLE = "Marketing Dashboard"
 # ---- Mock data (based on schema fields) ----
 
 def make_mock_data():
-    start_date = dt.date.today() - dt.timedelta(days=210)
-    date_range = [start_date + dt.timedelta(days=i) for i in range(211)]
-
-    platforms = ["Shopee", "Lazada", "Tiktok", "Website"]
+    base_date = dt.date.today() - dt.timedelta(days=120)
+    platforms = ["Shopee", "Lazada", "Tiktok", "LineOA", "Facebook", "LineShopping"]
     product_groups = ["Skincare", "Haircare", "Supplements", "Accessories"]
     products = [
         ("P001", "Glow Serum", "Skincare"),
@@ -30,48 +28,80 @@ def make_mock_data():
         ("P007", "Travel Pouch", "Accessories"),
         ("P008", "Silk Headband", "Accessories"),
     ]
+    order_statuses = ["New", "Packed", "Shipped", "Delivered", "Cancelled"]
+    shipping_methods = ["EMS", "Flash"]
+    purchase_types = ["Normal", "Promotion", "Preorder"]
+    order_types = ["Retail", "Wholesale", "Gift"]
 
     orders = []
     product_orders = []
-    order_id_counter = 10000
 
-    for date in date_range:
-        daily_orders = random.randint(12, 36)
-        for _ in range(daily_orders):
-            order_id_counter += 1
-            order_id = f"ORD{order_id_counter}"
-            platform = random.choice(platforms)
-            group_name = random.choice(product_groups)
-            customer_status = random.choices(["New", "Returning"], weights=[0.45, 0.55])[0]
-            items_count = random.randint(1, 3)
+    for index in range(50):
+        order_id = f"ORD{10001 + index}"
+        order_date = base_date + dt.timedelta(days=random.randint(0, 120))
+        time_stamp = dt.datetime.combine(order_date, dt.time(hour=random.randint(8, 21)))
+        shipdate = order_date + dt.timedelta(days=random.randint(0, 3))
+        platform = random.choice(platforms)
+        group_name = random.choice(product_groups)
+        customer_status = random.choices(["New", "Returning"], weights=[0.45, 0.55])[0]
+        items_count = random.randint(1, 3)
+        sales = round(random.uniform(300, 2200) * items_count, 2)
+        order_status = random.choice(order_statuses)
 
-            base_sales = random.uniform(180, 1200)
-            sales = round(base_sales * items_count, 2)
+        orders.append(
+            {
+                "order_id": order_id,
+                "time_stamp": time_stamp,
+                "shipdate": shipdate,
+                "channel": platform,
+                "customer_data": f"CID-{random.randint(1000, 9999)}",
+                "name": random.choice(
+                    [
+                        "Aria Bennett",
+                        "Mila Hart",
+                        "Noah Brooks",
+                        "Ethan Cole",
+                        "Luna Morris",
+                        "Ava Quinn",
+                    ]
+                ),
+                "address": f"{random.randint(10, 99)} Riverside Ave",
+                "zipcode": f"{random.randint(10000, 99999)}",
+                "phone": f"09{random.randint(10000000, 99999999)}",
+                "shipping": random.choice(shipping_methods),
+                "tracking_number": f"TRK{random.randint(100000, 999999)}",
+                "remark": random.choice(["", "Gift wrap", "Call before delivery"]),
+                "sales": sales,
+                "group_name": group_name,
+                "order_status": order_status,
+                "points_given": random.choice([True, False]),
+                "file_export_time": int(time_stamp.timestamp()),
+                "customer_status": customer_status,
+                "account_username": f"user{random.randint(100, 999)}",
+                "purchase_type": random.choice(purchase_types),
+                "order_type": random.choice(order_types),
+                "package_customer_id": random.randint(1, 120),
+                "packing_status": order_status in {"Packed", "Shipped", "Delivered"},
+                "packing_time_stamp": time_stamp + dt.timedelta(hours=random.randint(1, 6)),
+            }
+        )
 
-            orders.append(
+        for item_index in range(items_count):
+            product_id, product_name, product_category = random.choice(products)
+            quantity = random.randint(1, 4)
+            product_orders.append(
                 {
+                    "id": f"POL{order_id}-{item_index + 1}",
                     "order_id": order_id,
-                    "time_stamp": dt.datetime.combine(date, dt.time(hour=random.randint(8, 21))),
-                    "channel": platform,
-                    "group_name": group_name,
-                    "sales": sales,
-                    "customer_status": customer_status,
+                    "product_id": product_id,
+                    "product_name": product_name,
+                    "product_category": product_category,
+                    "quantity": quantity,
+                    "item_sales": round(random.uniform(80, 420) * quantity, 2),
+                    "packed": random.randint(0, quantity),
+                    "packed_time_stamp": time_stamp + dt.timedelta(hours=random.randint(2, 8)),
                 }
             )
-
-            for _ in range(items_count):
-                product_id, product_name, product_category = random.choice(products)
-                quantity = random.randint(1, 4)
-                product_orders.append(
-                    {
-                        "order_id": order_id,
-                        "product_id": product_id,
-                        "product_name": product_name,
-                        "product_category": product_category,
-                        "quantity": quantity,
-                        "item_sales": round(random.uniform(80, 420) * quantity, 2),
-                    }
-                )
 
     orders_df = pd.DataFrame(orders)
     products_df = pd.DataFrame(product_orders)
@@ -214,45 +244,202 @@ app.layout = html.Div(
                 ),
             ],
         ),
+        dcc.Tabs(
+            id="dashboard-tabs",
+            className="tabs",
+            value="overview",
+            children=[
+                dcc.Tab(label="Overview", value="overview", className="tab", selected_className="tab-selected"),
+                dcc.Tab(label="Total sales", value="total-sales", className="tab", selected_className="tab-selected"),
+                dcc.Tab(label="Number of customers", value="customers", className="tab", selected_className="tab-selected"),
+                dcc.Tab(label="Sales by product", value="products", className="tab", selected_className="tab-selected"),
+            ],
+        ),
         html.Div(
-            className="kpi-grid",
+            id="page-overview",
             children=[
                 html.Div(
-                    className="kpi-card",
+                    className="kpi-grid",
                     children=[
-                        html.Div("Total Sales", className="kpi-label"),
-                        html.Div(id="kpi-sales", className="kpi-value"),
-                        html.Div("vs prev period", className="kpi-foot"),
+                        html.Div(
+                            className="kpi-card",
+                            children=[
+                                html.Div("Total Sales", className="kpi-label"),
+                                html.Div(id="kpi-sales", className="kpi-value"),
+                                html.Div("vs prev period", className="kpi-foot"),
+                            ],
+                        ),
+                        html.Div(
+                            className="kpi-card",
+                            children=[
+                                html.Div("Orders", className="kpi-label"),
+                                html.Div(id="kpi-orders", className="kpi-value"),
+                                html.Div("avg items per order", className="kpi-foot"),
+                            ],
+                        ),
+                        html.Div(
+                            className="kpi-card",
+                            children=[
+                                html.Div("AOV", className="kpi-label"),
+                                html.Div(id="kpi-aov", className="kpi-value"),
+                                html.Div("basket size", className="kpi-foot"),
+                            ],
+                        ),
+                        html.Div(
+                            className="kpi-card",
+                            children=[
+                                html.Div("New Customers", className="kpi-label"),
+                                html.Div(id="kpi-new", className="kpi-value"),
+                                html.Div("share of period", className="kpi-foot"),
+                            ],
+                        ),
                     ],
                 ),
                 html.Div(
-                    className="kpi-card",
+                    className="grid",
                     children=[
-                        html.Div("Orders", className="kpi-label"),
-                        html.Div(id="kpi-orders", className="kpi-value"),
-                        html.Div("avg items per order", className="kpi-foot"),
+                        html.Div(
+                            className="panel span-7",
+                            children=[
+                                html.Div("Sales Over Time", className="panel-title"),
+                                dcc.Graph(id="sales-trend", className="graph"),
+                            ],
+                        ),
+                        html.Div(
+                            className="panel span-5",
+                            children=[
+                                html.Div("Sales by Platform", className="panel-title"),
+                                dcc.Graph(id="sales-platform", className="graph"),
+                            ],
+                        ),
+                        html.Div(
+                            className="panel span-5",
+                            children=[
+                                html.Div("Sales by Product Group", className="panel-title"),
+                                dcc.Graph(id="sales-group", className="graph"),
+                            ],
+                        ),
+                        html.Div(
+                            className="panel span-7",
+                            children=[
+                                html.Div("New vs Returning Customers", className="panel-title"),
+                                dcc.Graph(id="customer-mix", className="graph"),
+                            ],
+                        ),
                     ],
                 ),
+            ],
+        ),
+        html.Div(
+            id="page-total-sales",
+            style={"display": "none"},
+            children=[
                 html.Div(
-                    className="kpi-card",
+                    className="grid",
                     children=[
-                        html.Div("AOV", className="kpi-label"),
-                        html.Div(id="kpi-aov", className="kpi-value"),
-                        html.Div("basket size", className="kpi-foot"),
+                        html.Div(
+                            className="panel span-7",
+                            children=[
+                                html.Div("Sales Over Time", className="panel-title"),
+                                dcc.Graph(id="sales-trend-total", className="graph"),
+                            ],
+                        ),
+                        html.Div(
+                            className="panel span-5",
+                            children=[
+                                html.Div("Sales by Platform", className="panel-title"),
+                                dcc.Graph(id="sales-platform-total", className="graph"),
+                            ],
+                        ),
+                        html.Div(
+                            className="panel span-6",
+                            children=[
+                                html.Div("Sales by Product Group", className="panel-title"),
+                                dcc.Graph(id="sales-group-total", className="graph"),
+                            ],
+                        ),
                     ],
                 ),
+            ],
+        ),
+        html.Div(
+            id="page-customers",
+            style={"display": "none"},
+            children=[
                 html.Div(
-                    className="kpi-card",
+                    className="grid",
                     children=[
-                        html.Div("New Customers", className="kpi-label"),
-                        html.Div(id="kpi-new", className="kpi-value"),
-                        html.Div("share of period", className="kpi-foot"),
+                        html.Div(
+                            className="panel span-7",
+                            children=[
+                                html.Div("New vs Returning Customers", className="panel-title"),
+                                dcc.Graph(id="customer-mix-customers", className="graph"),
+                            ],
+                        ),
+                        html.Div(
+                            className="panel span-5",
+                            children=[
+                                html.Div("Monthly Comparison: New Customers", className="panel-title"),
+                                dcc.Graph(id="customer-monthly-customers", className="graph"),
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        ),
+        html.Div(
+            id="page-products",
+            style={"display": "none"},
+            children=[
+                html.Div(
+                    className="grid",
+                    children=[
+                        html.Div(
+                            className="panel span-6",
+                            children=[
+                                html.Div("Product Sales (Value)", className="panel-title"),
+                                dcc.Graph(id="product-sales-products", className="graph"),
+                            ],
+                        ),
+                        html.Div(
+                            className="panel span-6",
+                            children=[
+                                html.Div("Product Sales (Units)", className="panel-title"),
+                                dcc.Graph(id="product-qty-products", className="graph"),
+                            ],
+                        ),
+                        html.Div(
+                            className="panel span-6",
+                            children=[
+                                html.Div("Monthly Comparison: Products", className="panel-title"),
+                                dcc.Graph(id="product-monthly-products", className="graph"),
+                            ],
+                        ),
                     ],
                 ),
             ],
         ),
     ],
 )
+
+@app.callback(
+    [
+        Output("page-overview", "style"),
+        Output("page-total-sales", "style"),
+        Output("page-customers", "style"),
+        Output("page-products", "style"),
+    ],
+    [Input("dashboard-tabs", "value")],
+)
+def switch_pages(active_tab):
+    visible = {"display": "block"}
+    hidden = {"display": "none"}
+    return (
+        visible if active_tab == "overview" else hidden,
+        visible if active_tab == "total-sales" else hidden,
+        visible if active_tab == "customers" else hidden,
+        visible if active_tab == "products" else hidden,
+    )
 
 
 @app.callback(
@@ -265,10 +452,14 @@ app.layout = html.Div(
         Output("sales-platform", "figure"),
         Output("sales-group", "figure"),
         Output("customer-mix", "figure"),
-        Output("customer-monthly", "figure"),
-        Output("product-sales", "figure"),
-        Output("product-qty", "figure"),
-        Output("product-monthly", "figure"),
+        Output("sales-trend-total", "figure"),
+        Output("sales-platform-total", "figure"),
+        Output("sales-group-total", "figure"),
+        Output("customer-mix-customers", "figure"),
+        Output("customer-monthly-customers", "figure"),
+        Output("product-sales-products", "figure"),
+        Output("product-qty-products", "figure"),
+        Output("product-monthly-products", "figure"),
     ],
     [
         Input("period-toggle", "value"),
@@ -428,7 +619,7 @@ def refresh_dashboard(period, start_date, end_date, platforms, groups):
         fig.update_layout(
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
-            font_family="Palatino Linotype",
+            font_family="Noto Sans",
             hovermode="x unified",
             legend_title_text="",
         )
@@ -440,6 +631,10 @@ def refresh_dashboard(period, start_date, end_date, platforms, groups):
         kpi_orders,
         kpi_aov,
         kpi_new,
+        fig_sales,
+        fig_platform,
+        fig_group,
+        fig_customer,
         fig_sales,
         fig_platform,
         fig_group,
