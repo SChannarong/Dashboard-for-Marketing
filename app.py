@@ -545,11 +545,16 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         start = pd.to_datetime(start_date).date() if start_date else min_date
         end = pd.to_datetime(end_date).date() if end_date else max_date
 
+    if not platforms:
+        platforms = available_platforms
+    if not groups:
+        groups = available_groups
+
     filtered_orders = apply_date_filter(ORDERS_DF, start, end)
-    if platforms:
-        filtered_orders = filtered_orders[filtered_orders["channel"].isin(platforms)]
-    if groups:
-        filtered_orders = filtered_orders[filtered_orders["group_name"].isin(groups)]
+    filtered_orders = filtered_orders[filtered_orders["channel"].isin(platforms)]
+    filtered_orders = filtered_orders[filtered_orders["group_name"].isin(groups)]
+    if filtered_orders.empty:
+        filtered_orders = ORDERS_DF.copy()
 
     filtered_items = ORDER_ITEMS_DF.merge(
         filtered_orders[["order_id"]], on="order_id", how="inner"
