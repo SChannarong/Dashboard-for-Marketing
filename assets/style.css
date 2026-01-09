@@ -13,13 +13,26 @@
   --shadow: 0 10px 30px rgba(38, 23, 13, 0.12);
 }
 
+.theme-dark {
+  --bg: #11100f;
+  --panel: #191716;
+  --accent: #6aa5ff;
+  --accent-soft: #22304a;
+  --gold: #f9a64a;
+  --mint: #43c0b3;
+  --text: #f5f1ec;
+  --muted: #b7ada4;
+  --border: #2b2a29;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  background: radial-gradient(circle at top, #f8f4f1 0%, #efe6e1 60%, #eadfda 100%);
+  background: #0f0f0f;
   color: var(--text);
   font-family: "Noto Sans", "Segoe UI", Arial, sans-serif;
 }
@@ -27,7 +40,10 @@ body {
 .page {
   padding: 28px 36px 48px;
   max-width: 1320px;
-  margin: 0 auto;
+  margin: 20px auto 32px;
+  background: var(--bg);
+  border-radius: 28px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
 }
 
 .topbar {
@@ -67,6 +83,12 @@ body {
   gap: 10px;
   flex-wrap: wrap;
   justify-content: center;
+}
+
+.tabs-topbar {
+  flex: 1;
+  max-width: 620px;
+  margin: 0 18px;
 }
 
 .nav-pill {

@@ -28,10 +28,10 @@ def make_mock_data():
         ("P007", "Travel Pouch", "Accessories"),
         ("P008", "Silk Headband", "Accessories"),
     ]
-    order_statuses = ["New", "Packed", "Shipped", "Delivered", "Cancelled"]
+    order_statuses = ["Pending", "Shipped"]
     shipping_methods = ["EMS", "Flash"]
-    purchase_types = ["Normal", "Promotion", "Preorder"]
-    order_types = ["Retail", "Wholesale", "Gift"]
+    purchase_types = ["Normal", "Package"]
+    order_types = ["Normal", "Claim"]
 
     orders = []
     product_orders = []
@@ -144,7 +144,8 @@ max_date = ORDERS_DF["time_stamp"].max().date()
 
 
 app.layout = html.Div(
-    className="page",
+    id="app-root",
+    className="page theme-light",
     children=[
         html.Div(
             className="topbar",
@@ -155,20 +156,21 @@ app.layout = html.Div(
                         html.Div(className="brand-mark"),
                         html.Div(
                             children=[
-                                html.Div("La Moon", className="brand-title"),
+                                html.Div("La.moon", className="brand-title"),
                                 html.Div("Marketing Dashboard", className="brand-subtitle"),
                             ]
                         ),
                     ],
                 ),
-                html.Div(
-                    className="nav",
+                dcc.Tabs(
+                    id="dashboard-tabs",
+                    className="tabs tabs-topbar",
+                    value="overview",
                     children=[
-                        html.Span("Overview", className="nav-pill active"),
-                        html.Span("Paid Ads", className="nav-pill"),
-                        html.Span("Funnel", className="nav-pill"),
-                        html.Span("Creative & Audience", className="nav-pill"),
-                        html.Span("Orders & Customers", className="nav-pill"),
+                        dcc.Tab(label="Overview", value="overview", className="tab", selected_className="tab-selected"),
+                        dcc.Tab(label="Total sales", value="total-sales", className="tab", selected_className="tab-selected"),
+                        dcc.Tab(label="Number of customers", value="customers", className="tab", selected_className="tab-selected"),
+                        dcc.Tab(label="Sales by product", value="products", className="tab", selected_className="tab-selected"),
                     ],
                 ),
                 html.Div(
@@ -242,17 +244,22 @@ app.layout = html.Div(
                         ),
                     ],
                 ),
-            ],
-        ),
-        dcc.Tabs(
-            id="dashboard-tabs",
-            className="tabs",
-            value="overview",
-            children=[
-                dcc.Tab(label="Overview", value="overview", className="tab", selected_className="tab-selected"),
-                dcc.Tab(label="Total sales", value="total-sales", className="tab", selected_className="tab-selected"),
-                dcc.Tab(label="Number of customers", value="customers", className="tab", selected_className="tab-selected"),
-                dcc.Tab(label="Sales by product", value="products", className="tab", selected_className="tab-selected"),
+                html.Div(
+                    className="control-card",
+                    children=[
+                        html.Div("Theme", className="control-title"),
+                        dcc.RadioItems(
+                            id="theme-toggle",
+                            className="pill-group",
+                            options=[
+                                {"label": "Light", "value": "light"},
+                                {"label": "Dark", "value": "dark"},
+                            ],
+                            value="light",
+                            inline=True,
+                        ),
+                    ],
+                ),
             ],
         ),
         html.Div(
@@ -443,6 +450,14 @@ def switch_pages(active_tab):
 
 
 @app.callback(
+    Output("app-root", "className"),
+    [Input("theme-toggle", "value")],
+)
+def switch_theme(theme_value):
+    return f"page theme-{theme_value}"
+
+
+@app.callback(
     [
         Output("kpi-sales", "children"),
         Output("kpi-orders", "children"),
@@ -467,12 +482,13 @@ def switch_pages(active_tab):
         Input("date-range", "end_date"),
         Input("platform-filter", "value"),
         Input("group-filter", "value"),
+        Input("theme-toggle", "value"),
     ],
 )
 
-def refresh_dashboard(period, start_date, end_date, platforms, groups):
-    start = pd.to_datetime(start_date).date()
-    end = pd.to_datetime(end_date).date()
+def refresh_dashboard(period, start_date, end_date, platforms, groups, theme_value):
+    start = pd.to_datetime(start_date).date() if start_date else min_date
+    end = pd.to_datetime(end_date).date() if end_date else max_date
 
     filtered_orders = apply_date_filter(ORDERS_DF, start, end)
     if platforms:
@@ -494,6 +510,10 @@ def refresh_dashboard(period, start_date, end_date, platforms, groups):
     kpi_orders = f"{total_orders:,}"
     kpi_aov = f"THB {aov:,.0f}"
     kpi_new = f"{new_customers:,} ({new_share:.0f}%)"
+    is_dark = theme_value == "dark"
+    font_color = "#f5f1ec" if is_dark else "#2b2825"
+    grid_color = "#2c2b2a" if is_dark else "#e7e1db"
+    legend_bg = "rgba(16,14,12,0.7)" if is_dark else "rgba(255,255,255,0.6)"
 
     grouped_orders, label = group_period(filtered_orders.copy(), "monthly" if period == "monthly" else "daily")
     sales_trend = grouped_orders.groupby("period", as_index=False)["sales"].sum()
@@ -508,17 +528,17 @@ def refresh_dashboard(period, start_date, end_date, platforms, groups):
     fig_sales.update_layout(margin=dict(l=10, r=10, t=10, b=20))
 
     platform_sales = (
-        filtered_orders.groupby("channel", as_index=False)["sales"].sum().sort_values("sales")
+        filtered_orders.groupby("channel", as_index=False)["sales"].sum().sort_values("sales", ascending=False)
     )
-    fig_platform = px.bar(
+    fig_platform = px.pie(
         platform_sales,
-        x="sales",
-        y="channel",
-        orientation="h",
-        color_discrete_sequence=["#f9a64a"],
-        labels={"sales": "Sales", "channel": "Platform"},
+        values="sales",
+        names="channel",
+        color_discrete_sequence=["#f9a64a", "#6aa5ff", "#9fdfc4", "#ffd9a2"],
+        hole=0.35,
     )
-    fig_platform.update_layout(margin=dict(l=20, r=10, t=10, b=20))
+    fig_platform.update_traces(textposition="inside", textinfo="percent+label")
+    fig_platform.update_layout(margin=dict(l=10, r=10, t=10, b=10), showlegend=True)
 
     group_sales = (
         filtered_orders.groupby("group_name", as_index=False)["sales"].sum().sort_values("sales")
@@ -620,11 +640,13 @@ def refresh_dashboard(period, start_date, end_date, platforms, groups):
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
             font_family="Noto Sans",
+            font_color=font_color,
             hovermode="x unified",
             legend_title_text="",
+            legend_bgcolor=legend_bg,
         )
         fig.update_xaxes(showgrid=False)
-        fig.update_yaxes(showgrid=True, gridcolor="#e7e1db")
+        fig.update_yaxes(showgrid=True, gridcolor=grid_color)
 
     return (
         kpi_sales,
