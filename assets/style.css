@@ -7,10 +7,14 @@
   --accent-soft: #e3e6f5;
   --gold: #f9a64a;
   --mint: #2bb3a5;
-  --text: #2b2825;
+  --text: #000000;
   --muted: #7a6f68;
   --border: #e6ded7;
   --shadow: 0 10px 30px rgba(38, 23, 13, 0.12);
+}
+
+.theme-light {
+  --text: #000000;
 }
 
 .theme-dark {
@@ -20,7 +24,7 @@
   --accent-soft: #22304a;
   --gold: #f9a64a;
   --mint: #43c0b3;
-  --text: #f5f1ec;
+  --text: #ffffff;
   --muted: #b7ada4;
   --border: #2b2a29;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
@@ -111,6 +115,20 @@ body {
   align-items: center;
 }
 
+.theme-toggle label {
+  background: var(--panel);
+  padding: 6px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.theme-toggle input:checked + label {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
 .user-pill {
   background: var(--panel);
   padding: 6px 12px;
@@ -138,6 +156,8 @@ body {
 }
 
 .tab {
+  display: inline-flex !important;
+  width: auto !important;
   padding: 10px 18px !important;
   border-radius: 18px !important;
   border: 1px solid var(--border) !important;
@@ -149,6 +169,10 @@ body {
   background: var(--accent) !important;
   color: #fff !important;
   border-color: var(--accent) !important;
+}
+
+.tabs .tab {
+  flex: 0 0 auto !important;
 }
 
 .control-card {
@@ -165,6 +189,53 @@ body {
   text-transform: uppercase;
   color: var(--muted);
   margin-bottom: 8px;
+}
+
+.dropdown .Select-control {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--text);
+}
+
+.dropdown .Select-placeholder,
+.dropdown .Select-value-label,
+.dropdown .Select-input input {
+  color: var(--text) !important;
+}
+
+.dropdown .Select--multi .Select-value {
+  background: var(--accent-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+}
+
+.dropdown .Select--multi .Select-value-label,
+.dropdown .Select--multi .Select-value-icon {
+  color: var(--text) !important;
+}
+
+.dropdown .Select--multi .Select-value-icon {
+  border-right: 1px solid var(--border);
+}
+
+.dropdown .Select-menu-outer {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+}
+
+.dropdown .Select-option {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.dropdown .Select-option.is-focused,
+.dropdown .Select-option.is-selected {
+  background: var(--accent-soft);
+  color: var(--text);
 }
 
 .pill-group .dash-radio-items {

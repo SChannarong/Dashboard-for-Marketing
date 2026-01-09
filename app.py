@@ -178,6 +178,16 @@ app.layout = html.Div(
                     children=[
                         html.Div("Moise Sitman", className="user-pill"),
                         html.Div("Satri", className="user-pill"),
+                        dcc.RadioItems(
+                            id="theme-toggle",
+                            className="theme-toggle",
+                            options=[
+                                {"label": "Light", "value": "light"},
+                                {"label": "Dark", "value": "dark"},
+                            ],
+                            value="light",
+                            inline=True,
+                        ),
                         html.Div(className="avatar"),
                     ],
                 ),
@@ -241,22 +251,6 @@ app.layout = html.Div(
                             value=available_groups,
                             multi=True,
                             className="dropdown",
-                        ),
-                    ],
-                ),
-                html.Div(
-                    className="control-card",
-                    children=[
-                        html.Div("Theme", className="control-title"),
-                        dcc.RadioItems(
-                            id="theme-toggle",
-                            className="pill-group",
-                            options=[
-                                {"label": "Light", "value": "light"},
-                                {"label": "Dark", "value": "dark"},
-                            ],
-                            value="light",
-                            inline=True,
                         ),
                     ],
                 ),
@@ -511,7 +505,7 @@ def refresh_dashboard(period, start_date, end_date, platforms, groups, theme_val
     kpi_aov = f"THB {aov:,.0f}"
     kpi_new = f"{new_customers:,} ({new_share:.0f}%)"
     is_dark = theme_value == "dark"
-    font_color = "#f5f1ec" if is_dark else "#2b2825"
+    font_color = "#ffffff" if is_dark else "#000000"
     grid_color = "#2c2b2a" if is_dark else "#e7e1db"
     legend_bg = "rgba(16,14,12,0.7)" if is_dark else "rgba(255,255,255,0.6)"
 
