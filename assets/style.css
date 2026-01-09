@@ -74,6 +74,7 @@ body {
   font-size: 20px;
   font-weight: 700;
   letter-spacing: 0.5px;
+  color: var(--text);
 }
 
 .brand-subtitle {
@@ -257,6 +258,22 @@ body {
   flex: 0 0 auto;
 }
 
+.checklist label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.checklist input[type="checkbox"] {
+  accent-color: var(--text);
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
 .dropdown .Select-menu-outer {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -275,16 +292,26 @@ body {
   color: var(--text);
 }
 
-.pill-group .dash-radio-items {
+.checklist .dash-radio-items {
   display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
-.pill-group label {
-  background: #f1ece7;
-  padding: 6px 12px;
-  border-radius: 14px;
-  font-size: 12px;
+.checklist label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.checklist input[type="radio"] {
+  accent-color: var(--text);
+  width: 14px;
+  height: 14px;
+  margin: 0;
 }
 
 .theme-dark .pill-group label {
@@ -316,6 +343,7 @@ body {
   font-size: 26px;
   font-weight: 700;
   margin: 6px 0;
+  color: var(--text);
 }
 
 .kpi-foot {
@@ -341,6 +369,24 @@ body {
   background: var(--panel) !important;
   color: var(--text) !important;
   border-color: var(--border) !important;
+}
+
+.DateRangePickerInput {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.DateInput {
+  width: 46%;
+}
+
+.DateRangePickerInput_arrow {
+  color: var(--text);
+}
+
+.DateInput_input {
+  font-size: 16px;
 }
 
 .theme-dark .CalendarDay__default,

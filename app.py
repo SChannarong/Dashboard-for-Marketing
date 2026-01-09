@@ -202,14 +202,14 @@ app.layout = html.Div(
                         html.Div("Period", className="control-title"),
                         dcc.RadioItems(
                             id="period-toggle",
-                            className="pill-group",
+                            className="checklist",
                             options=[
                                 {"label": "Daily", "value": "daily"},
                                 {"label": "Monthly", "value": "monthly"},
                                 {"label": "Custom", "value": "custom"},
                             ],
                             value="daily",
-                            inline=True,
+                            inline=False,
                         ),
                     ],
                 ),
@@ -232,12 +232,11 @@ app.layout = html.Div(
                     className="control-card",
                     children=[
                         html.Div("Platform", className="control-title"),
-                        dcc.Dropdown(
+                        dcc.Checklist(
                             id="platform-filter",
                             options=[{"label": p, "value": p} for p in available_platforms],
                             value=available_platforms,
-                            multi=True,
-                            className="dropdown",
+                            className="checklist",
                         ),
                     ],
                 ),
@@ -245,12 +244,11 @@ app.layout = html.Div(
                     className="control-card",
                     children=[
                         html.Div("Product Group", className="control-title"),
-                        dcc.Dropdown(
+                        dcc.Checklist(
                             id="group-filter",
                             options=[{"label": g, "value": g} for g in available_groups],
                             value=available_groups,
-                            multi=True,
-                            className="dropdown",
+                            className="checklist",
                         ),
                     ],
                 ),
