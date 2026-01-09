@@ -488,9 +488,16 @@ def toggle_date_controls(period_value, current_start, current_end):
     if period_value == "monthly":
         return {"display": "none"}, {"display": "block"}, "Year Range", True, current_start, current_end
     if period_value == "daily":
-        return {"display": "block"}, {"display": "none"}, "Latest Week", True, latest_start, latest_end
-    start = current_start or min_date
-    end = current_end or max_date
+        return (
+            {"display": "block"},
+            {"display": "none"},
+            "Latest Week",
+            True,
+            latest_start.isoformat(),
+            latest_end.isoformat(),
+        )
+    start = current_start or min_date.isoformat()
+    end = current_end or max_date.isoformat()
     return {"display": "block"}, {"display": "none"}, "Date Range", False, start, end
 
 
@@ -559,6 +566,8 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     filtered_items = ORDER_ITEMS_DF.merge(
         filtered_orders[["order_id"]], on="order_id", how="inner"
     )
+    if filtered_items.empty:
+        filtered_items = ORDER_ITEMS_DF.copy()
 
     total_sales = filtered_orders["sales"].sum()
     total_orders = filtered_orders["order_id"].nunique()
