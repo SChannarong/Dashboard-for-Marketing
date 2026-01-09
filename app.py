@@ -4,7 +4,7 @@ import random
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from dash import Dash, Input, Output, dcc, html
+from dash import Dash, Input, Output, State, dcc, html
 
 
 random.seed(7)
@@ -125,9 +125,13 @@ def group_period(df, period):
         df["period"] = df["time_stamp"].dt.to_period("M").dt.to_timestamp()
         df["period_label"] = df["time_stamp"].dt.strftime("%b")
         label = "Month"
-    else:
+    elif period == "daily":
         df["period"] = df["time_stamp"].dt.date
         df["period_label"] = df["time_stamp"].dt.strftime("%a")
+        label = "Day"
+    else:
+        df["period"] = df["time_stamp"].dt.date
+        df["period_label"] = df["time_stamp"].dt.strftime("%d %b %Y")
         label = "Date"
     return df, label
 
@@ -468,13 +472,26 @@ def switch_pages(active_tab):
         Output("date-range-wrapper", "style"),
         Output("year-range-wrapper", "style"),
         Output("date-range-title", "children"),
+        Output("date-range", "disabled"),
+        Output("date-range", "start_date"),
+        Output("date-range", "end_date"),
     ],
     [Input("period-toggle", "value")],
+    [
+        State("date-range", "start_date"),
+        State("date-range", "end_date"),
+    ],
 )
-def toggle_date_controls(period_value):
+def toggle_date_controls(period_value, current_start, current_end):
+    latest_start = max_date - dt.timedelta(days=max_date.weekday())
+    latest_end = latest_start + dt.timedelta(days=6)
     if period_value == "monthly":
-        return {"display": "none"}, {"display": "block"}, "Year Range"
-    return {"display": "block"}, {"display": "none"}, "Date Range"
+        return {"display": "none"}, {"display": "block"}, "Year Range", True, current_start, current_end
+    if period_value == "daily":
+        return {"display": "block"}, {"display": "none"}, "Latest Week", True, latest_start, latest_end
+    start = current_start or min_date
+    end = current_end or max_date
+    return {"display": "block"}, {"display": "none"}, "Date Range", False, start, end
 
 
 @app.callback(
@@ -553,12 +570,12 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
     grid_color = font_color
     legend_bg = "rgba(16,14,12,0.7)" if is_dark else "rgba(255,255,255,0.6)"
 
-    grouped_orders, label = group_period(filtered_orders.copy(), "monthly" if period == "monthly" else "daily")
+    grouped_orders, label = group_period(filtered_orders.copy(), period)
     sales_trend = grouped_orders.groupby(["period", "period_label"], as_index=False)["sales"].sum()
     month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     week_order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-    x_axis = "period_label" if period in {"monthly", "daily"} else "period"
+    x_axis = "period_label" if period in {"monthly", "daily", "custom"} else "period"
     fig_sales = px.bar(
         sales_trend,
         x=x_axis,
@@ -567,10 +584,14 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         labels={x_axis: label, "sales": "Sales"},
     )
     fig_sales.update_layout(margin=dict(l=10, r=10, t=10, b=20))
+    fig_sales.update_layout(bargap=0.25, bargroupgap=0.1)
+    fig_sales.update_traces(marker_line_color=grid_color, marker_line_width=0.5)
     if period == "monthly":
         fig_sales.update_xaxes(categoryorder="array", categoryarray=month_order)
     if period == "daily":
         fig_sales.update_xaxes(categoryorder="array", categoryarray=week_order)
+    if period in {"monthly", "daily", "custom"}:
+        fig_sales.update_xaxes(type="category", tickson="boundaries")
 
     platform_sales = (
         filtered_orders.groupby("channel", as_index=False)["sales"].sum().sort_values("sales", ascending=False)
@@ -602,6 +623,8 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         labels={"sales": "Sales", "group_name": "Group"},
     )
     fig_group.update_layout(margin=dict(l=20, r=10, t=10, b=20))
+    fig_group.update_layout(bargap=0.2, bargroupgap=0.1)
+    fig_group.update_traces(marker_line_color=grid_color, marker_line_width=0.5)
 
     customer_mix = grouped_orders.groupby(["period", "period_label", "customer_status"]).size().reset_index(name="orders")
     fig_customer = px.bar(
@@ -614,10 +637,14 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         labels={x_axis: label, "orders": "Orders"},
     )
     fig_customer.update_layout(margin=dict(l=10, r=10, t=10, b=20))
+    fig_customer.update_layout(bargap=0.25, bargroupgap=0.1)
+    fig_customer.update_traces(marker_line_color=grid_color, marker_line_width=0.5)
     if period == "monthly":
         fig_customer.update_xaxes(categoryorder="array", categoryarray=month_order)
     if period == "daily":
         fig_customer.update_xaxes(categoryorder="array", categoryarray=week_order)
+    if period in {"monthly", "daily", "custom"}:
+        fig_customer.update_xaxes(type="category", tickson="boundaries")
 
     monthly_customer = filtered_orders.copy()
     monthly_customer["month"] = monthly_customer["time_stamp"].dt.to_period("M").dt.to_timestamp()
@@ -651,6 +678,8 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         labels={"item_sales": "Sales", "product_name": "Product"},
     )
     fig_product_sales.update_layout(margin=dict(l=20, r=10, t=10, b=20))
+    fig_product_sales.update_layout(bargap=0.2, bargroupgap=0.1)
+    fig_product_sales.update_traces(marker_line_color=grid_color, marker_line_width=0.5)
 
     product_qty = (
         filtered_items.groupby("product_name", as_index=False)["quantity"].sum()
@@ -666,6 +695,8 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         labels={"quantity": "Units", "product_name": "Product"},
     )
     fig_product_qty.update_layout(margin=dict(l=20, r=10, t=10, b=20))
+    fig_product_qty.update_layout(bargap=0.2, bargroupgap=0.1)
+    fig_product_qty.update_traces(marker_line_color=grid_color, marker_line_width=0.5)
 
     monthly_product = filtered_items.copy()
     monthly_product["month"] = monthly_product["time_stamp"].dt.to_period("M").dt.to_timestamp()
@@ -703,8 +734,31 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
             legend_title_text="",
             legend_bgcolor=legend_bg,
         )
-        fig.update_xaxes(showgrid=False)
-        fig.update_yaxes(showgrid=True, gridcolor=grid_color)
+        fig.update_xaxes(
+            showgrid=False,
+            tickfont=dict(color=font_color),
+            titlefont=dict(color=font_color),
+            showline=True,
+            linecolor=grid_color,
+            linewidth=1,
+            ticks="outside",
+            ticklen=6,
+            tickcolor=grid_color,
+            tickangle=60,
+        )
+        fig.update_yaxes(
+            showgrid=True,
+            gridcolor=grid_color,
+            tickfont=dict(color=font_color),
+            titlefont=dict(color=font_color),
+            showline=True,
+            linecolor=grid_color,
+            linewidth=1,
+            ticks="outside",
+            ticklen=6,
+            tickcolor=grid_color,
+        )
+        fig.update_traces(textfont=dict(color=font_color))
 
     return (
         kpi_sales,
