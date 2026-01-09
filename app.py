@@ -606,14 +606,10 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         labels={x_axis: label, "sales": "Sales"},
     )
     fig_sales.update_layout(margin=dict(l=10, r=10, t=10, b=20))
-    fig_sales.update_layout(bargap=0.25, bargroupgap=0.1)
-    fig_sales.update_traces(marker_line_color=grid_color, marker_line_width=0.5)
     if period == "monthly":
         fig_sales.update_xaxes(categoryorder="array", categoryarray=month_order)
     if period == "daily":
         fig_sales.update_xaxes(categoryorder="array", categoryarray=week_order)
-    if period in {"monthly", "daily", "custom"}:
-        fig_sales.update_xaxes(type="category", tickson="boundaries")
 
     platform_sales = (
         filtered_orders.groupby("channel", as_index=False)["sales"].sum().sort_values("sales", ascending=False)
@@ -649,8 +645,6 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         labels={"sales": "Sales", "group_name": "Group"},
     )
     fig_group.update_layout(margin=dict(l=20, r=10, t=10, b=20))
-    fig_group.update_layout(bargap=0.2, bargroupgap=0.1)
-    fig_group.update_traces(marker_line_color=grid_color, marker_line_width=0.5)
 
     customer_mix = grouped_orders.groupby(["period_label", "customer_status"]).size().reset_index(name="orders")
     customer_mix = customer_mix[[x_axis, "customer_status", "orders"]]
@@ -667,14 +661,10 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         labels={x_axis: label, "orders": "Orders"},
     )
     fig_customer.update_layout(margin=dict(l=10, r=10, t=10, b=20))
-    fig_customer.update_layout(bargap=0.25, bargroupgap=0.1)
-    fig_customer.update_traces(marker_line_color=grid_color, marker_line_width=0.5)
     if period == "monthly":
         fig_customer.update_xaxes(categoryorder="array", categoryarray=month_order)
     if period == "daily":
         fig_customer.update_xaxes(categoryorder="array", categoryarray=week_order)
-    if period in {"monthly", "daily", "custom"}:
-        fig_customer.update_xaxes(type="category", tickson="boundaries")
 
     monthly_customer = filtered_orders.copy()
     monthly_customer["month_label"] = monthly_customer["time_stamp"].dt.strftime("%b")
@@ -719,8 +709,6 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         labels={"item_sales": "Sales", "product_name": "Product"},
     )
     fig_product_sales.update_layout(margin=dict(l=20, r=10, t=10, b=20))
-    fig_product_sales.update_layout(bargap=0.2, bargroupgap=0.1)
-    fig_product_sales.update_traces(marker_line_color=grid_color, marker_line_width=0.5)
 
     product_qty = (
         filtered_items.groupby("product_name", as_index=False)["quantity"].sum()
@@ -742,8 +730,6 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
         labels={"quantity": "Units", "product_name": "Product"},
     )
     fig_product_qty.update_layout(margin=dict(l=20, r=10, t=10, b=20))
-    fig_product_qty.update_layout(bargap=0.2, bargroupgap=0.1)
-    fig_product_qty.update_traces(marker_line_color=grid_color, marker_line_width=0.5)
 
     monthly_product = filtered_items.copy()
     monthly_product["month_label"] = monthly_product["time_stamp"].dt.strftime("%b")
@@ -790,12 +776,6 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
             showgrid=False,
             tickfont=dict(color=font_color),
             titlefont=dict(color=font_color),
-            showline=True,
-            linecolor=grid_color,
-            linewidth=1,
-            ticks="outside",
-            ticklen=6,
-            tickcolor=grid_color,
             tickangle=60,
         )
         fig.update_yaxes(
@@ -803,12 +783,6 @@ def refresh_dashboard(period, start_date, end_date, selected_year, platforms, gr
             gridcolor=grid_color,
             tickfont=dict(color=font_color),
             titlefont=dict(color=font_color),
-            showline=True,
-            linecolor=grid_color,
-            linewidth=1,
-            ticks="outside",
-            ticklen=6,
-            tickcolor=grid_color,
         )
         fig.update_traces(textfont=dict(color=font_color))
 
