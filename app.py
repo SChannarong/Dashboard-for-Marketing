@@ -123,9 +123,11 @@ def apply_date_filter(df, start_date, end_date):
 def group_period(df, period):
     if period == "monthly":
         df["period"] = df["time_stamp"].dt.to_period("M").dt.to_timestamp()
+        df["period_label"] = df["time_stamp"].dt.strftime("%b")
         label = "Month"
     else:
         df["period"] = df["time_stamp"].dt.date
+        df["period_label"] = df["time_stamp"].dt.strftime("%a")
         label = "Date"
     return df, label
 
@@ -141,6 +143,8 @@ available_groups = sorted(ORDERS_DF["group_name"].unique())
 
 min_date = ORDERS_DF["time_stamp"].min().date()
 max_date = ORDERS_DF["time_stamp"].max().date()
+available_years = sorted({d.year for d in ORDERS_DF["time_stamp"].dt.date})
+default_year = dt.date.today().year if dt.date.today().year in available_years else max(available_years)
 
 
 app.layout = html.Div(
@@ -216,15 +220,33 @@ app.layout = html.Div(
                 html.Div(
                     className="control-card",
                     children=[
-                        html.Div("Date Range", className="control-title"),
-                        dcc.DatePickerRange(
-                            id="date-range",
-                            min_date_allowed=min_date,
-                            max_date_allowed=max_date,
-                            start_date=max_date - dt.timedelta(days=14),
-                            end_date=max_date,
-                            display_format="DD MMM YYYY",
-                            className="date-picker",
+                        html.Div("Date Range", id="date-range-title", className="control-title"),
+                        html.Div(
+                            id="date-range-wrapper",
+                            children=[
+                                dcc.DatePickerRange(
+                                    id="date-range",
+                                    min_date_allowed=min_date,
+                                    max_date_allowed=max_date,
+                                    start_date=max_date - dt.timedelta(days=14),
+                                    end_date=max_date,
+                                    display_format="DD MMM YYYY",
+                                    className="date-picker",
+                                ),
+                            ],
+                        ),
+                        html.Div(
+                            id="year-range-wrapper",
+                            style={"display": "none"},
+                            children=[
+                                dcc.Dropdown(
+                                    id="year-select",
+                                    options=[{"label": str(y), "value": y} for y in available_years],
+                                    value=default_year,
+                                    clearable=False,
+                                    className="dropdown",
+                                ),
+                            ],
                         ),
                     ],
                 ),
@@ -442,6 +464,20 @@ def switch_pages(active_tab):
 
 
 @app.callback(
+    [
+        Output("date-range-wrapper", "style"),
+        Output("year-range-wrapper", "style"),
+        Output("date-range-title", "children"),
+    ],
+    [Input("period-toggle", "value")],
+)
+def toggle_date_controls(period_value):
+    if period_value == "monthly":
+        return {"display": "none"}, {"display": "block"}, "Year Range"
+    return {"display": "block"}, {"display": "none"}, "Date Range"
+
+
+@app.callback(
     Output("app-root", "className"),
     [Input("theme-toggle", "value")],
 )
@@ -472,15 +508,25 @@ def switch_theme(theme_value):
         Input("period-toggle", "value"),
         Input("date-range", "start_date"),
         Input("date-range", "end_date"),
+        Input("year-select", "value"),
         Input("platform-filter", "value"),
         Input("group-filter", "value"),
         Input("theme-toggle", "value"),
     ],
 )
 
-def refresh_dashboard(period, start_date, end_date, platforms, groups, theme_value):
-    start = pd.to_datetime(start_date).date() if start_date else min_date
-    end = pd.to_datetime(end_date).date() if end_date else max_date
+def refresh_dashboard(period, start_date, end_date, selected_year, platforms, groups, theme_value):
+    if period == "monthly":
+        year = selected_year or default_year
+        start = dt.date(year, 1, 1)
+        end = dt.date(year, 12, 31)
+    elif period == "daily":
+        latest = max_date
+        start = latest - dt.timedelta(days=latest.weekday())
+        end = start + dt.timedelta(days=6)
+    else:
+        start = pd.to_datetime(start_date).date() if start_date else min_date
+        end = pd.to_datetime(end_date).date() if end_date else max_date
 
     filtered_orders = apply_date_filter(ORDERS_DF, start, end)
     if platforms:
@@ -504,20 +550,27 @@ def refresh_dashboard(period, start_date, end_date, platforms, groups, theme_val
     kpi_new = f"{new_customers:,} ({new_share:.0f}%)"
     is_dark = theme_value == "dark"
     font_color = "#ffffff" if is_dark else "#000000"
-    grid_color = "#2c2b2a" if is_dark else "#e7e1db"
+    grid_color = font_color
     legend_bg = "rgba(16,14,12,0.7)" if is_dark else "rgba(255,255,255,0.6)"
 
     grouped_orders, label = group_period(filtered_orders.copy(), "monthly" if period == "monthly" else "daily")
-    sales_trend = grouped_orders.groupby("period", as_index=False)["sales"].sum()
+    sales_trend = grouped_orders.groupby(["period", "period_label"], as_index=False)["sales"].sum()
+    month_order = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    week_order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
+    x_axis = "period_label" if period in {"monthly", "daily"} else "period"
     fig_sales = px.bar(
         sales_trend,
-        x="period",
+        x=x_axis,
         y="sales",
         color_discrete_sequence=["#4979ff"],
-        labels={"period": label, "sales": "Sales"},
+        labels={x_axis: label, "sales": "Sales"},
     )
     fig_sales.update_layout(margin=dict(l=10, r=10, t=10, b=20))
+    if period == "monthly":
+        fig_sales.update_xaxes(categoryorder="array", categoryarray=month_order)
+    if period == "daily":
+        fig_sales.update_xaxes(categoryorder="array", categoryarray=week_order)
 
     platform_sales = (
         filtered_orders.groupby("channel", as_index=False)["sales"].sum().sort_values("sales", ascending=False)
@@ -529,7 +582,12 @@ def refresh_dashboard(period, start_date, end_date, platforms, groups, theme_val
         color_discrete_sequence=["#f9a64a", "#6aa5ff", "#9fdfc4", "#ffd9a2"],
         hole=0.35,
     )
-    fig_platform.update_traces(textposition="inside", textinfo="percent+label")
+    fig_platform.update_traces(
+        textposition="inside",
+        textinfo="percent+label",
+        textangle=0,
+        textfont_color=font_color,
+    )
     fig_platform.update_layout(margin=dict(l=10, r=10, t=10, b=10), showlegend=True)
 
     group_sales = (
@@ -545,33 +603,39 @@ def refresh_dashboard(period, start_date, end_date, platforms, groups, theme_val
     )
     fig_group.update_layout(margin=dict(l=20, r=10, t=10, b=20))
 
-    customer_mix = grouped_orders.groupby(["period", "customer_status"]).size().reset_index(name="orders")
+    customer_mix = grouped_orders.groupby(["period", "period_label", "customer_status"]).size().reset_index(name="orders")
     fig_customer = px.bar(
         customer_mix,
-        x="period",
+        x=x_axis,
         y="orders",
         color="customer_status",
         barmode="stack",
         color_discrete_map={"New": "#4f7cff", "Returning": "#b8c6ff"},
-        labels={"period": label, "orders": "Orders"},
+        labels={x_axis: label, "orders": "Orders"},
     )
     fig_customer.update_layout(margin=dict(l=10, r=10, t=10, b=20))
+    if period == "monthly":
+        fig_customer.update_xaxes(categoryorder="array", categoryarray=month_order)
+    if period == "daily":
+        fig_customer.update_xaxes(categoryorder="array", categoryarray=week_order)
 
     monthly_customer = filtered_orders.copy()
     monthly_customer["month"] = monthly_customer["time_stamp"].dt.to_period("M").dt.to_timestamp()
+    monthly_customer["month_label"] = monthly_customer["time_stamp"].dt.strftime("%b")
     monthly_customer = (
-        monthly_customer.groupby(["month", "customer_status"]).size().reset_index(name="orders")
+        monthly_customer.groupby(["month", "month_label", "customer_status"]).size().reset_index(name="orders")
     )
     fig_customer_monthly = px.line(
         monthly_customer,
-        x="month",
+        x="month_label",
         y="orders",
         color="customer_status",
         markers=True,
         color_discrete_map={"New": "#f28b6c", "Returning": "#a7b1ff"},
-        labels={"month": "Month", "orders": "Orders"},
+        labels={"month_label": "Month", "orders": "Orders"},
     )
     fig_customer_monthly.update_layout(margin=dict(l=10, r=10, t=10, b=20))
+    fig_customer_monthly.update_xaxes(categoryorder="array", categoryarray=month_order)
 
     product_sales = (
         filtered_items.groupby("product_name", as_index=False)["item_sales"].sum()
@@ -605,18 +669,20 @@ def refresh_dashboard(period, start_date, end_date, platforms, groups, theme_val
 
     monthly_product = filtered_items.copy()
     monthly_product["month"] = monthly_product["time_stamp"].dt.to_period("M").dt.to_timestamp()
+    monthly_product["month_label"] = monthly_product["time_stamp"].dt.strftime("%b")
     monthly_product = (
-        monthly_product.groupby(["month", "product_category"], as_index=False)["item_sales"].sum()
+        monthly_product.groupby(["month", "month_label", "product_category"], as_index=False)["item_sales"].sum()
     )
     fig_product_monthly = px.area(
         monthly_product,
-        x="month",
+        x="month_label",
         y="item_sales",
         color="product_category",
         color_discrete_sequence=["#9f7aea", "#f9a64a", "#61c1c7", "#cbd4ff"],
-        labels={"month": "Month", "item_sales": "Sales"},
+        labels={"month_label": "Month", "item_sales": "Sales"},
     )
     fig_product_monthly.update_layout(margin=dict(l=10, r=10, t=10, b=20))
+    fig_product_monthly.update_xaxes(categoryorder="array", categoryarray=month_order)
 
     for fig in [
         fig_sales,

@@ -122,6 +122,7 @@ body {
   border-radius: 14px;
   border: 1px solid var(--border);
   font-size: 12px;
+  color: var(--text);
 }
 
 .theme-toggle input:checked + label {
@@ -397,6 +398,38 @@ body {
   background: #1c1a19 !important;
   color: var(--text) !important;
   border-color: var(--border) !important;
+}
+
+.theme-dark .CalendarDay__selected_start,
+.theme-dark .CalendarDay__selected_start:hover,
+.theme-dark .CalendarDay__selected_end,
+.theme-dark .CalendarDay__selected_end:hover {
+  background: transparent !important;
+  color: var(--text) !important;
+  border: 1px solid #ffffff !important;
+}
+
+.theme-dark .CalendarDay__hovered_span,
+.theme-dark .CalendarDay__hovered_span:hover {
+  background: #242220 !important;
+  color: var(--text) !important;
+  border-color: #ffffff !important;
+}
+
+.theme-light .CalendarDay__selected_start,
+.theme-light .CalendarDay__selected_start:hover,
+.theme-light .CalendarDay__selected_end,
+.theme-light .CalendarDay__selected_end:hover {
+  background: transparent !important;
+  color: var(--text) !important;
+  border: 1px solid #000000 !important;
+}
+
+.theme-light .CalendarDay__hovered_span,
+.theme-light .CalendarDay__hovered_span:hover {
+  background: #f1ece7 !important;
+  color: var(--text) !important;
+  border-color: #000000 !important;
 }
 
 .theme-dark .DayPickerNavigation_button__default {
