@@ -10,6 +10,21 @@ from dash import Dash, Input, Output, State, dcc, html, callback_context
 random.seed(7)
 
 APP_TITLE = "Marketing Dashboard"
+MONTH_MAP = {
+    1: "Jan",
+    2: "Feb",
+    3: "Mar",
+    4: "Apr",
+    5: "May",
+    6: "Jun",
+    7: "Jul",
+    8: "Aug",
+    9: "Sep",
+    10: "Oct",
+    11: "Nov",
+    12: "Dec",
+}
+MONTH_ORDER = list(MONTH_MAP.values())
 
 
 # ---- Mock data (based on schema fields) ----
@@ -222,14 +237,6 @@ app.layout = html.Div(
                             value="daily",
                             inline=False,
                         ),
-                        html.Div(
-                            id="week-nav",
-                            className="week-nav",
-                            children=[
-                                html.Button("Prev", id="week-prev", className="week-btn", n_clicks=0),
-                                html.Button("Next", id="week-next", className="week-btn", n_clicks=0),
-                            ],
-                        ),
                     ],
                 ),
                 html.Div(
@@ -261,6 +268,21 @@ app.layout = html.Div(
                                     clearable=False,
                                     className="dropdown",
                                 ),
+                                dcc.Dropdown(
+                                    id="month-select",
+                                    options=[{"label": m, "value": m} for m in MONTH_ORDER],
+                                    value=MONTH_ORDER,
+                                    multi=True,
+                                    className="dropdown",
+                                ),
+                            ],
+                        ),
+                        html.Div(
+                            id="week-nav",
+                            className="week-nav",
+                            children=[
+                                html.Button("Prev", id="week-prev", className="week-btn", n_clicks=0),
+                                html.Button("Next", id="week-next", className="week-btn", n_clicks=0),
                             ],
                         ),
                     ],
@@ -507,7 +529,7 @@ def toggle_date_controls(period_value, week_offset, current_start, current_end):
         return (
             {"display": "none"},
             {"display": "block"},
-            "Year Range",
+            "Year & Month",
             True,
             current_start,
             current_end,
@@ -582,13 +604,14 @@ def update_week_offset(prev_clicks, next_clicks, period_value, current_offset):
         Input("date-range", "end_date"),
         Input("year-select", "value"),
         Input("week-offset", "data"),
+        Input("month-select", "value"),
         Input("platform-filter", "value"),
         Input("group-filter", "value"),
         Input("theme-toggle", "value"),
     ],
 )
 
-def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, platforms, groups, theme_value):
+def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, selected_months, platforms, groups, theme_value):
     if period == "monthly":
         year = selected_year or default_year
         start = dt.date(year, 1, 1)
@@ -610,6 +633,11 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
     filtered_orders = apply_date_filter(ORDERS_DF, start, end)
     filtered_orders = filtered_orders[filtered_orders["channel"].isin(platforms)]
     filtered_orders = filtered_orders[filtered_orders["group_name"].isin(groups)]
+    if period == "monthly":
+        months = selected_months or MONTH_ORDER
+        filtered_orders = filtered_orders[
+            filtered_orders["time_stamp"].dt.month.map(MONTH_MAP).isin(months)
+        ]
 
     filtered_items = ORDER_ITEMS_DF.merge(
         filtered_orders[["order_id"]], on="order_id", how="inner"
@@ -633,20 +661,6 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
     hover_font = "#ffffff" if is_dark else "#000000"
     hover_border = "#ffffff" if is_dark else "#000000"
 
-    month_map = {
-        1: "Jan",
-        2: "Feb",
-        3: "Mar",
-        4: "Apr",
-        5: "May",
-        6: "Jun",
-        7: "Jul",
-        8: "Aug",
-        9: "Sep",
-        10: "Oct",
-        11: "Nov",
-        12: "Dec",
-    }
     day_map = {
         0: "Mon",
         1: "Tue",
@@ -656,15 +670,15 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         5: "Sat",
         6: "Sun",
     }
-    month_order = list(month_map.values())
     week_order = list(day_map.values())
+    month_order_used = (selected_months or MONTH_ORDER) if period == "monthly" else MONTH_ORDER
 
     orders_for_charts = filtered_orders.copy()
 
     if period == "monthly":
-        orders_for_charts["period_label"] = orders_for_charts["time_stamp"].dt.month.map(month_map)
+        orders_for_charts["period_label"] = orders_for_charts["time_stamp"].dt.month.map(MONTH_MAP)
         period_label_title = "Month"
-        x_order = month_order
+        x_order = month_order_used
     elif period == "daily":
         orders_for_charts["period_label"] = orders_for_charts["time_stamp"].dt.dayofweek.map(day_map)
         period_label_title = "Day"
@@ -725,7 +739,7 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         labels={"sales": "Sales", "group_name": "Group"},
     )
     fig_group.update_layout(margin=dict(l=20, r=10, t=10, b=20))
-    fig_group.update_yaxes(categoryorder="total descending")
+    fig_group.update_yaxes(categoryorder="total ascending")
 
     customer_mix = (
         orders_for_charts.groupby(["period_label", "customer_status"])
@@ -742,7 +756,7 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         x="period_label",
         y="orders",
         color="customer_status",
-        barmode="stack",
+        barmode="group",
         color_discrete_map={"New": "#4f7cff", "Returning": "#b8c6ff"},
         labels={"period_label": period_label_title, "orders": "Orders"},
     )
@@ -751,14 +765,14 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         fig_customer.update_xaxes(categoryorder="array", categoryarray=x_order)
 
     monthly_customer = orders_for_charts.copy()
-    monthly_customer["month_label"] = monthly_customer["time_stamp"].dt.month.map(month_map)
+    monthly_customer["month_label"] = monthly_customer["time_stamp"].dt.month.map(MONTH_MAP)
     monthly_customer = (
         monthly_customer.groupby(["month_label", "customer_status"])
         .size()
         .reset_index(name="orders")
     )
     month_index = pd.MultiIndex.from_product(
-        [month_order, ["New", "Returning"]], names=["month_label", "customer_status"]
+        [month_order_used, ["New", "Returning"]], names=["month_label", "customer_status"]
     )
     monthly_customer = (
         monthly_customer.set_index(["month_label", "customer_status"])
@@ -775,7 +789,7 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         labels={"month_label": "Month", "orders": "Orders"},
     )
     fig_customer_monthly.update_layout(margin=dict(l=10, r=10, t=10, b=20))
-    fig_customer_monthly.update_xaxes(categoryorder="array", categoryarray=month_order)
+    fig_customer_monthly.update_xaxes(categoryorder="array", categoryarray=month_order_used)
 
     items_for_charts = filtered_items.copy()
 
@@ -793,7 +807,7 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         labels={"item_sales": "Sales", "product_name": "Product"},
     )
     fig_product_sales.update_layout(margin=dict(l=20, r=10, t=10, b=20))
-    fig_product_sales.update_yaxes(categoryorder="total descending")
+    fig_product_sales.update_yaxes(categoryorder="total ascending")
 
     product_qty = (
         items_for_charts.groupby("product_name", as_index=False)["quantity"].sum()
@@ -809,10 +823,10 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         labels={"quantity": "Units", "product_name": "Product"},
     )
     fig_product_qty.update_layout(margin=dict(l=20, r=10, t=10, b=20))
-    fig_product_qty.update_yaxes(categoryorder="total descending")
+    fig_product_qty.update_yaxes(categoryorder="total ascending")
 
     monthly_product = items_for_charts.copy()
-    monthly_product["month_label"] = monthly_product["time_stamp"].dt.month.map(month_map)
+    monthly_product["month_label"] = monthly_product["time_stamp"].dt.month.map(MONTH_MAP)
     monthly_product = (
         monthly_product.groupby(["month_label", "product_category"], as_index=False)["item_sales"].sum()
     )
@@ -825,7 +839,7 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         labels={"month_label": "Month", "item_sales": "Sales"},
     )
     fig_product_monthly.update_layout(margin=dict(l=10, r=10, t=10, b=20))
-    fig_product_monthly.update_xaxes(categoryorder="array", categoryarray=month_order)
+    fig_product_monthly.update_xaxes(categoryorder="array", categoryarray=month_order_used)
 
     for fig in [
         fig_sales,
