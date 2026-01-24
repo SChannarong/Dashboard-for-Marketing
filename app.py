@@ -25,23 +25,24 @@ MONTH_MAP = {
     12: "Dec",
 }
 MONTH_ORDER = list(MONTH_MAP.values())
+PRODUCT_GROUPS = [
+    "Cold brew",
+    "Cold drip",
+    "Duo set",
+    "Matcha",
+    "Bakery",
+    "Coffee Bean",
+    "Drip Bag",
+    "Others",
+]
 
 
 # ---- Mock data (based on schema fields) ----
 
 def make_mock_data():
-    base_date = dt.date.today() - dt.timedelta(days=120)
+    base_date = dt.date.today() - dt.timedelta(days=180)
     platforms = ["Shopee", "Lazada", "Tiktok", "LineOA", "Facebook", "LineShopping"]
-    product_groups = [
-        "Cold brew",
-        "Cold drip",
-        "Duo set",
-        "Matcha",
-        "Bakery",
-        "Coffee Bean",
-        "Drip Bag",
-        "Others",
-    ]
+    product_groups = PRODUCT_GROUPS
     order_statuses = ["Pending", "Shipped"]
     shipping_methods = ["EMS", "Flash"]
     purchase_types = ["Normal", "Package", "B2B", "Cold.Cafe", "Internal-Use"]
@@ -124,8 +125,8 @@ def make_mock_data():
     add_product("Coffee Drip ML", "Drip Bag", 25)
     add_product("Coffee Drip M", "Drip Bag", 35)
 
-    add_product("Tumbler", "Others", 95)
-    add_product("Lamoon cup", "Others", 350)
+    add_product("Tumbler", "Others", 350)
+    add_product("Lamoon cup", "Others", 95)
 
     lamoon = product_registry_by_name["Lamoon cup"]
     eligible_cold_brew = ["Original", "Dark Edition", "Fruity Delight", "Milky"]
@@ -252,9 +253,9 @@ def make_mock_data():
 
         return order_items
 
-    for index in range(50):
+    for index in range(50000):
         order_id = f"ORD{10001 + index}"
-        order_date = base_date + dt.timedelta(days=random.randint(0, 120))
+        order_date = base_date + dt.timedelta(days=random.randint(0, 180))
         time_stamp = dt.datetime.combine(order_date, dt.time(hour=random.randint(8, 21)))
         shipdate = order_date + dt.timedelta(days=random.randint(0, 3))
         platform = random.choice(platforms)
@@ -372,7 +373,7 @@ app.title = APP_TITLE
 server = app.server
 
 available_platforms = sorted(ORDERS_DF["channel"].unique())
-available_groups = sorted(ORDERS_DF["group_name"].unique())
+available_groups = PRODUCT_GROUPS
 
 min_date = ORDERS_DF["time_stamp"].min().date()
 max_date = ORDERS_DF["time_stamp"].max().date()
@@ -549,7 +550,7 @@ app.layout = html.Div(
                         html.Div(
                             className="kpi-card",
                             children=[
-                                html.Div("Total Sales", className="kpi-label"),
+                                html.Div("Total Sales (Last Month)", className="kpi-label"),
                                 html.Div(id="kpi-sales", className="kpi-value"),
                                 html.Div("vs prev period", className="kpi-foot"),
                             ],
@@ -557,7 +558,7 @@ app.layout = html.Div(
                         html.Div(
                             className="kpi-card",
                             children=[
-                                html.Div("Orders", className="kpi-label"),
+                                html.Div("Total Order (Last Month)", className="kpi-label"),
                                 html.Div(id="kpi-orders", className="kpi-value"),
                                 html.Div("avg items per order", className="kpi-foot"),
                             ],
@@ -565,7 +566,7 @@ app.layout = html.Div(
                         html.Div(
                             className="kpi-card",
                             children=[
-                                html.Div("AOV", className="kpi-label"),
+                                html.Div("Average Per Order", className="kpi-label"),
                                 html.Div(id="kpi-aov", className="kpi-value"),
                                 html.Div("basket size", className="kpi-foot"),
                             ],
@@ -573,7 +574,7 @@ app.layout = html.Div(
                         html.Div(
                             className="kpi-card",
                             children=[
-                                html.Div("New Customers", className="kpi-label"),
+                                html.Div("New Customers (Last Month)", className="kpi-label"),
                                 html.Div(id="kpi-new", className="kpi-value"),
                                 html.Div("share of period", className="kpi-foot"),
                             ],
@@ -867,6 +868,30 @@ def update_week_offset(prev_clicks, next_clicks, period_value, current_offset):
 )
 
 def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, selected_months, platforms, groups, theme_value):
+    is_dark = theme_value == "dark"
+    font_color = "#ffffff" if is_dark else "#000000"
+    grid_color = font_color
+    legend_bg = "rgba(16,14,12,0.7)" if is_dark else "rgba(255,255,255,0.6)"
+    hover_bg = "#111111" if is_dark else "#ffffff"
+    hover_font = "#ffffff" if is_dark else "#000000"
+    hover_border = "#ffffff" if is_dark else "#000000"
+
+    def build_blank_figure():
+        fig = go.Figure()
+        fig.update_layout(
+            margin=dict(l=10, r=10, t=10, b=20),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_family="Noto Sans",
+            font_color=font_color,
+            hovermode="x unified",
+            legend_title_text="",
+            legend_bgcolor=legend_bg,
+        )
+        fig.update_xaxes(visible=False)
+        fig.update_yaxes(visible=False)
+        return fig
+
     if period == "monthly":
         year = selected_year or default_year
         start = dt.date(year, 1, 1)
@@ -881,13 +906,42 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         end = pd.to_datetime(end_date).date() if end_date else max_date
 
     if not platforms:
-        platforms = available_platforms
+        platforms = []
     if not groups:
-        groups = available_groups
+        groups = []
 
-    filtered_orders = apply_date_filter(ORDERS_DF, start, end)
-    filtered_orders = filtered_orders[filtered_orders["channel"].isin(platforms)]
-    filtered_orders = filtered_orders[filtered_orders["group_name"].isin(groups)]
+    if not platforms or not groups:
+        blank = build_blank_figure()
+        return (
+            "N/A",
+            "N/A",
+            "N/A",
+            "N/A",
+            blank,
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+        )
+
+    base_filtered = ORDERS_DF[ORDERS_DF["channel"].isin(platforms)]
+    base_filtered = base_filtered[base_filtered["group_name"].isin(groups)]
+
+    reference_date = max_date
+    first_of_current_month = dt.date(reference_date.year, reference_date.month, 1)
+    last_month_end = first_of_current_month - dt.timedelta(days=1)
+    last_month_start = dt.date(last_month_end.year, last_month_end.month, 1)
+    last_month_orders = apply_date_filter(base_filtered, last_month_start, last_month_end)
+
+    filtered_orders = apply_date_filter(base_filtered, start, end)
     if period == "monthly":
         months = selected_months or MONTH_ORDER
         filtered_orders = filtered_orders[
@@ -898,24 +952,16 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         filtered_orders[["order_id"]], on="order_id", how="inner"
     )
 
-    total_sales = filtered_orders["sales"].sum()
-    total_orders = filtered_orders["order_id"].nunique()
+    total_sales = last_month_orders["sales"].sum()
+    total_orders = last_month_orders["order_id"].nunique()
     aov = total_sales / total_orders if total_orders else 0
-    new_customers = (filtered_orders["customer_status"] == "New").sum()
+    new_customers = (last_month_orders["customer_status"] == "New").sum()
     new_share = (new_customers / total_orders) * 100 if total_orders else 0
 
     kpi_sales = f"THB {total_sales:,.0f}"
     kpi_orders = f"{total_orders:,}"
     kpi_aov = f"THB {aov:,.0f}"
     kpi_new = f"{new_customers:,} ({new_share:.0f}%)"
-    is_dark = theme_value == "dark"
-    font_color = "#ffffff" if is_dark else "#000000"
-    grid_color = font_color
-    legend_bg = "rgba(16,14,12,0.7)" if is_dark else "rgba(255,255,255,0.6)"
-    hover_bg = "#111111" if is_dark else "#ffffff"
-    hover_font = "#ffffff" if is_dark else "#000000"
-    hover_border = "#ffffff" if is_dark else "#000000"
-
     day_map = {
         0: "Mon",
         1: "Tue",
