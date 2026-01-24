@@ -42,6 +42,14 @@ PRODUCT_GROUPS = [
 def make_mock_data():
     base_date = dt.date.today() - dt.timedelta(days=180)
     platforms = ["Shopee", "Lazada", "Tiktok", "LineOA", "Facebook", "LineShopping"]
+    platform_weights = {
+        "Facebook": 2,
+        "Lazada": 10,
+        "LineOA": 3,
+        "LineShopping": 5,
+        "Shopee": 50,
+        "Tiktok": 30,
+    }
     product_groups = PRODUCT_GROUPS
     order_statuses = ["Pending", "Shipped"]
     shipping_methods = ["EMS", "Flash"]
@@ -113,7 +121,7 @@ def make_mock_data():
     add_product("rinro", "Matcha", 1280)
     add_product("asumi", "Matcha", 720)
 
-    add_product("Mini Crosaint", "Bakery", 75)
+    add_product("Mini Crosaint", "Bakery", 100)
 
     add_product("Original", "Coffee Bean", 235)
     add_product("Dark", "Coffee Bean", 235)
@@ -162,6 +170,7 @@ def make_mock_data():
     group_names = list(group_weights.keys())
     group_weight_values = [group_weights[name] for name in group_names]
     eligible_channels = {"Shopee", "Tiktok", "LineShopping", "Lazada"}
+    platform_weight_values = [platform_weights[name] for name in platforms]
 
     def add_order_item(order_items, product, quantity):
         entry = order_items.get(product["product_id"])
@@ -258,7 +267,7 @@ def make_mock_data():
         order_date = base_date + dt.timedelta(days=random.randint(0, 180))
         time_stamp = dt.datetime.combine(order_date, dt.time(hour=random.randint(8, 21)))
         shipdate = order_date + dt.timedelta(days=random.randint(0, 3))
-        platform = random.choice(platforms)
+        platform = random.choices(platforms, weights=platform_weight_values, k=1)[0]
         customer_status = random.choices(["New", "Returning"], weights=[0.45, 0.55])[0]
         order_status = random.choice(order_statuses)
 
@@ -520,6 +529,12 @@ app.layout = html.Div(
                     children=[
                         html.Div("Platform", className="control-title"),
                         dcc.Checklist(
+                            id="platform-select-all",
+                            options=[{"label": "Select all", "value": "all"}],
+                            value=["all"],
+                            className="checklist",
+                        ),
+                        dcc.Checklist(
                             id="platform-filter",
                             options=[{"label": p, "value": p} for p in available_platforms],
                             value=available_platforms,
@@ -531,6 +546,12 @@ app.layout = html.Div(
                     className="control-card",
                     children=[
                         html.Div("Product Group", className="control-title"),
+                        dcc.Checklist(
+                            id="group-select-all",
+                            options=[{"label": "Select all", "value": "all"}],
+                            value=["all"],
+                            className="checklist",
+                        ),
                         dcc.Checklist(
                             id="group-filter",
                             options=[{"label": g, "value": g} for g in available_groups],
@@ -552,7 +573,6 @@ app.layout = html.Div(
                             children=[
                                 html.Div("Total Sales (Last Month)", className="kpi-label"),
                                 html.Div(id="kpi-sales", className="kpi-value"),
-                                html.Div("vs prev period", className="kpi-foot"),
                             ],
                         ),
                         html.Div(
@@ -560,7 +580,6 @@ app.layout = html.Div(
                             children=[
                                 html.Div("Total Order (Last Month)", className="kpi-label"),
                                 html.Div(id="kpi-orders", className="kpi-value"),
-                                html.Div("avg items per order", className="kpi-foot"),
                             ],
                         ),
                         html.Div(
@@ -568,7 +587,6 @@ app.layout = html.Div(
                             children=[
                                 html.Div("Average Per Order", className="kpi-label"),
                                 html.Div(id="kpi-aov", className="kpi-value"),
-                                html.Div("basket size", className="kpi-foot"),
                             ],
                         ),
                         html.Div(
@@ -576,7 +594,6 @@ app.layout = html.Div(
                             children=[
                                 html.Div("New Customers (Last Month)", className="kpi-label"),
                                 html.Div(id="kpi-new", className="kpi-value"),
-                                html.Div("share of period", className="kpi-foot"),
                             ],
                         ),
                     ],
@@ -814,6 +831,48 @@ def select_all_months(n_clicks, current_value):
 
 
 @app.callback(
+    [
+        Output("platform-filter", "value"),
+        Output("platform-select-all", "value"),
+    ],
+    [
+        Input("platform-select-all", "value"),
+        Input("platform-filter", "value"),
+    ],
+)
+def sync_platform_selection(select_all_value, selected_platforms):
+    selected_platforms = selected_platforms or []
+    triggered = callback_context.triggered[0]["prop_id"].split(".")[0] if callback_context.triggered else ""
+    if triggered == "platform-select-all":
+        if select_all_value and "all" in select_all_value:
+            return available_platforms, ["all"]
+        return [], []
+    all_selected = set(selected_platforms) == set(available_platforms)
+    return selected_platforms, (["all"] if all_selected else [])
+
+
+@app.callback(
+    [
+        Output("group-filter", "value"),
+        Output("group-select-all", "value"),
+    ],
+    [
+        Input("group-select-all", "value"),
+        Input("group-filter", "value"),
+    ],
+)
+def sync_group_selection(select_all_value, selected_groups):
+    selected_groups = selected_groups or []
+    triggered = callback_context.triggered[0]["prop_id"].split(".")[0] if callback_context.triggered else ""
+    if triggered == "group-select-all":
+        if select_all_value and "all" in select_all_value:
+            return available_groups, ["all"]
+        return [], []
+    all_selected = set(selected_groups) == set(available_groups)
+    return selected_groups, (["all"] if all_selected else [])
+
+
+@app.callback(
     Output("week-offset", "data"),
     [
         Input("week-prev", "n_clicks"),
@@ -932,30 +991,69 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
             build_blank_figure(),
         )
 
-    base_filtered = ORDERS_DF[ORDERS_DF["channel"].isin(platforms)]
-    base_filtered = base_filtered[base_filtered["group_name"].isin(groups)]
+    base_orders = ORDERS_DF[ORDERS_DF["channel"].isin(platforms)]
+    items_base = ORDER_ITEMS_DF.merge(
+        base_orders[["order_id", "time_stamp", "channel", "customer_status"]],
+        on="order_id",
+        how="inner",
+    )
+    items_base = items_base[items_base["product_category"].isin(groups)]
+
+    if items_base.empty:
+        blank = build_blank_figure()
+        return (
+            "N/A",
+            "N/A",
+            "N/A",
+            "N/A",
+            blank,
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+            build_blank_figure(),
+        )
 
     reference_date = max_date
     first_of_current_month = dt.date(reference_date.year, reference_date.month, 1)
     last_month_end = first_of_current_month - dt.timedelta(days=1)
     last_month_start = dt.date(last_month_end.year, last_month_end.month, 1)
-    last_month_orders = apply_date_filter(base_filtered, last_month_start, last_month_end)
+    last_month_items = apply_date_filter(items_base, last_month_start, last_month_end)
 
-    filtered_orders = apply_date_filter(base_filtered, start, end)
+    items_for_charts = apply_date_filter(items_base, start, end)
     if period == "monthly":
         months = selected_months or MONTH_ORDER
-        filtered_orders = filtered_orders[
-            filtered_orders["time_stamp"].dt.month.map(MONTH_MAP).isin(months)
+        items_for_charts = items_for_charts[
+            items_for_charts["time_stamp"].dt.month.map(MONTH_MAP).isin(months)
         ]
 
-    filtered_items = ORDER_ITEMS_DF.merge(
-        filtered_orders[["order_id"]], on="order_id", how="inner"
-    )
+    total_sales = last_month_items["item_sales"].sum()
+    total_orders = last_month_items["order_id"].nunique()
 
-    total_sales = last_month_orders["sales"].sum()
-    total_orders = last_month_orders["order_id"].nunique()
-    aov = total_sales / total_orders if total_orders else 0
-    new_customers = (last_month_orders["customer_status"] == "New").sum()
+    monthly_orders = items_for_charts.copy()
+    monthly_orders["year"] = monthly_orders["time_stamp"].dt.year
+    monthly_orders["month"] = monthly_orders["time_stamp"].dt.month
+    monthly_aov = (
+        monthly_orders.groupby(["year", "month"], as_index=False)
+        .agg(total_sales=("item_sales", "sum"), total_orders=("order_id", "nunique"))
+    )
+    if not monthly_aov.empty:
+        monthly_aov["aov"] = monthly_aov["total_sales"] / monthly_aov["total_orders"].replace(0, pd.NA)
+        aov = monthly_aov["aov"].mean()
+        if pd.isna(aov):
+            aov = 0
+    else:
+        aov = 0
+    new_customers = last_month_items[last_month_items["customer_status"] == "New"][
+        "order_id"
+    ].nunique()
     new_share = (new_customers / total_orders) * 100 if total_orders else 0
 
     kpi_sales = f"THB {total_sales:,.0f}"
@@ -978,48 +1076,54 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
     else:
         month_order_used = MONTH_ORDER
 
-    orders_for_charts = filtered_orders.copy()
+    orders_for_charts = items_for_charts.drop_duplicates("order_id")[
+        ["order_id", "time_stamp", "customer_status", "channel"]
+    ].copy()
 
     if period == "monthly":
+        items_for_charts["period_label"] = items_for_charts["time_stamp"].dt.month.map(MONTH_MAP)
         orders_for_charts["period_label"] = orders_for_charts["time_stamp"].dt.month.map(MONTH_MAP)
         period_label_title = "Month"
         x_order = month_order_used
     elif period == "daily":
+        items_for_charts["period_label"] = items_for_charts["time_stamp"].dt.dayofweek.map(day_map)
         orders_for_charts["period_label"] = orders_for_charts["time_stamp"].dt.dayofweek.map(day_map)
         period_label_title = "Day"
         x_order = week_order
     else:
+        items_for_charts["period_date"] = items_for_charts["time_stamp"].dt.date
+        items_for_charts["period_label"] = items_for_charts["time_stamp"].dt.strftime("%d %b %Y")
         orders_for_charts["period_date"] = orders_for_charts["time_stamp"].dt.date
         orders_for_charts["period_label"] = orders_for_charts["time_stamp"].dt.strftime("%d %b %Y")
         period_label_title = "Date"
         x_order = (
-            orders_for_charts.drop_duplicates("period_date")
+            items_for_charts.drop_duplicates("period_date")
             .sort_values("period_date")["period_label"]
             .tolist()
         )
 
-    sales_trend = orders_for_charts.groupby("period_label", as_index=False)["sales"].sum()
+    sales_trend = items_for_charts.groupby("period_label", as_index=False)["item_sales"].sum()
     if x_order:
         sales_trend = sales_trend.set_index("period_label").reindex(x_order).reset_index()
     fig_sales = px.bar(
         sales_trend,
         x="period_label",
-        y="sales",
+        y="item_sales",
         color_discrete_sequence=["#4979ff"],
-        labels={"period_label": period_label_title, "sales": "Sales"},
+        labels={"period_label": period_label_title, "item_sales": "Sales"},
     )
     fig_sales.update_layout(margin=dict(l=10, r=10, t=10, b=20))
     if x_order:
         fig_sales.update_xaxes(categoryorder="array", categoryarray=x_order)
 
     platform_sales = (
-        orders_for_charts.groupby("channel", as_index=False)["sales"]
+        items_for_charts.groupby("channel", as_index=False)["item_sales"]
         .sum()
-        .sort_values("sales", ascending=False)
+        .sort_values("item_sales", ascending=False)
     )
     fig_platform = px.pie(
         platform_sales,
-        values="sales",
+        values="item_sales",
         names="channel",
         color_discrete_sequence=["#f9a64a", "#6aa5ff", "#9fdfc4", "#ffd9a2"],
         hole=0.35,
@@ -1033,15 +1137,17 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
     fig_platform.update_layout(margin=dict(l=10, r=10, t=10, b=10), showlegend=True)
 
     group_sales = (
-        orders_for_charts.groupby("group_name", as_index=False)["sales"].sum().sort_values("sales")
+        items_for_charts.groupby("product_category", as_index=False)["item_sales"]
+        .sum()
+        .sort_values("item_sales")
     )
     fig_group = px.bar(
         group_sales,
-        x="sales",
-        y="group_name",
+        x="item_sales",
+        y="product_category",
         orientation="h",
         color_discrete_sequence=["#2bb3a5"],
-        labels={"sales": "Sales", "group_name": "Group"},
+        labels={"item_sales": "Sales", "product_category": "Group"},
     )
     fig_group.update_layout(margin=dict(l=20, r=10, t=10, b=20))
     fig_group.update_yaxes(categoryorder="total ascending")
@@ -1096,10 +1202,8 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
     fig_customer_monthly.update_layout(margin=dict(l=10, r=10, t=10, b=20))
     fig_customer_monthly.update_xaxes(categoryorder="array", categoryarray=month_order_used)
 
-    items_for_charts = filtered_items.copy()
-
     top_products = (
-        filtered_items.groupby("product_name", as_index=False)["item_sales"]
+        items_for_charts.groupby("product_name", as_index=False)["item_sales"]
         .sum()
         .sort_values("item_sales", ascending=False)
         .head(5)
