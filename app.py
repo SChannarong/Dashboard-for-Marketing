@@ -4,7 +4,7 @@ import random
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from dash import Dash, Input, Output, State, dcc, html, callback_context
+from dash import Dash, Input, Output, State, dcc, html, callback_context, no_update
 
 
 random.seed(7)
@@ -273,6 +273,17 @@ app.layout = html.Div(
                                     className="month-dropdown",
                                     children=[
                                         html.Summary(f"Selected months: {len(MONTH_ORDER)}", id="month-summary"),
+                                        html.Div(
+                                            className="month-actions",
+                                            children=[
+                                                html.Button(
+                                                    "Select all",
+                                                    id="month-select-all",
+                                                    className="week-btn",
+                                                    n_clicks=0,
+                                                )
+                                            ],
+                                        ),
                                         dcc.Checklist(
                                             id="month-checklist",
                                             options=[{"label": m, "value": m} for m in MONTH_ORDER],
@@ -574,6 +585,17 @@ def update_month_summary(selected_months):
 
 
 @app.callback(
+    Output("month-checklist", "value"),
+    [Input("month-select-all", "n_clicks")],
+    [State("month-checklist", "value")],
+)
+def select_all_months(n_clicks, current_value):
+    if not n_clicks:
+        return no_update
+    return MONTH_ORDER
+
+
+@app.callback(
     Output("week-offset", "data"),
     [
         Input("week-prev", "n_clicks"),
@@ -686,7 +708,11 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         6: "Sun",
     }
     week_order = list(day_map.values())
-    month_order_used = (selected_months or MONTH_ORDER) if period == "monthly" else MONTH_ORDER
+    if period == "monthly":
+        chosen_months = selected_months or MONTH_ORDER
+        month_order_used = [m for m in MONTH_ORDER if m in chosen_months]
+    else:
+        month_order_used = MONTH_ORDER
 
     orders_for_charts = filtered_orders.copy()
 
