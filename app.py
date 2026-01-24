@@ -1155,7 +1155,8 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
     fig_platform.update_traces(
         textposition="inside",
         textinfo="percent+label",
-        textfont=dict(color=platform_text_colors),
+        textfont=dict(color=font_color),
+        insidetextfont=dict(color=platform_text_colors),
         marker=dict(line=dict(color="#ffffff", width=1.5)),
         insidetextorientation="horizontal",
     )
