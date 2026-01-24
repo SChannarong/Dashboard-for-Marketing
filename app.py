@@ -1148,10 +1148,14 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         color_discrete_map=platform_color_map,
         hole=0.35,
     )
+    platform_text_colors = [
+        "#ffffff" if channel == "Tiktok" else font_color
+        for channel in platform_sales["channel"]
+    ]
     fig_platform.update_traces(
         textposition="inside",
         textinfo="percent+label",
-        textfont_color=font_color,
+        textfont=dict(color=platform_text_colors),
         marker=dict(line=dict(color="#ffffff", width=1.5)),
         insidetextorientation="horizontal",
     )
