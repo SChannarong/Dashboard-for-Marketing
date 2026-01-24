@@ -1144,6 +1144,7 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         platform_sales,
         values="item_sales",
         names="channel",
+        color="channel",
         color_discrete_map=platform_color_map,
         hole=0.35,
     )
