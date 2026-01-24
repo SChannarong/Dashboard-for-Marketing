@@ -991,12 +991,7 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
             build_blank_figure(),
         )
 
-    base_orders = ORDERS_DF[ORDERS_DF["channel"].isin(platforms)]
-    items_base = ORDER_ITEMS_DF.merge(
-        base_orders[["order_id", "time_stamp", "channel", "customer_status"]],
-        on="order_id",
-        how="inner",
-    )
+    items_base = ORDER_ITEMS_DF[ORDER_ITEMS_DF["channel"].isin(platforms)]
     items_base = items_base[items_base["product_category"].isin(groups)]
 
     if items_base.empty:
