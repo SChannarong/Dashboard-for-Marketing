@@ -183,6 +183,8 @@ def make_mock_data():
                 "product_id": product["product_id"],
                 "product_name": product["product_name"],
                 "product_category": product["product_category"],
+                "base_name": product["base_name"],
+                "size_ml": product["size_ml"],
                 "quantity": quantity,
                 "item_sales": item_sales,
             }
@@ -331,6 +333,8 @@ def make_mock_data():
                     "product_id": product_id,
                     "product_name": product_name,
                     "product_category": product_category,
+                    "base_name": item["base_name"],
+                    "size_ml": item["size_ml"],
                     "quantity": quantity,
                     "item_sales": round(item["item_sales"], 2),
                     "packed": random.randint(0, quantity),
@@ -452,6 +456,7 @@ app.layout = html.Div(
                             options=[
                                 {"label": "Daily", "value": "daily"},
                                 {"label": "Monthly", "value": "monthly"},
+                                {"label": "All data", "value": "all"},
                                 {"label": "Custom", "value": "custom"},
                             ],
                             value="daily",
@@ -787,6 +792,16 @@ def toggle_date_controls(period_value, week_offset, current_start, current_end):
             current_end,
             {"display": "none"},
         )
+    if period_value == "all":
+        return (
+            {"display": "none"},
+            {"display": "none"},
+            "All data",
+            True,
+            min_date.isoformat(),
+            max_date.isoformat(),
+            {"display": "none"},
+        )
     if period_value == "daily":
         return (
             {"display": "block"},
@@ -955,6 +970,9 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         year = selected_year or default_year
         start = dt.date(year, 1, 1)
         end = dt.date(year, 12, 31)
+    elif period == "all":
+        start = min_date
+        end = max_date
     elif period == "daily":
         latest = max_date
         offset = week_offset or 0
@@ -1029,6 +1047,18 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
             items_for_charts["time_stamp"].dt.month.map(MONTH_MAP).isin(months)
         ]
 
+    items_for_charts = items_for_charts.copy()
+    items_for_charts["product_rollup"] = items_for_charts["product_name"]
+    size_mask = items_for_charts["size_ml"].notna()
+    items_for_charts.loc[size_mask, "product_rollup"] = items_for_charts.loc[size_mask, "base_name"]
+    coffee_mask = (
+        (items_for_charts["product_category"] == "Coffee Bean")
+        & (items_for_charts["product_rollup"].isin(["Original", "Dark", "Fruity", "Milky"]))
+    )
+    items_for_charts.loc[coffee_mask, "product_rollup"] = (
+        "Coffee Bean " + items_for_charts.loc[coffee_mask, "product_rollup"].astype(str)
+    )
+
     total_sales = last_month_items["item_sales"].sum()
     total_orders = last_month_items["order_id"].nunique()
 
@@ -1068,6 +1098,8 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
     if period == "monthly":
         chosen_months = selected_months or MONTH_ORDER
         month_order_used = [m for m in MONTH_ORDER if m in chosen_months]
+    elif period == "all":
+        month_order_used = MONTH_ORDER
     else:
         month_order_used = MONTH_ORDER
 
@@ -1086,11 +1118,11 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         period_label_title = "Day"
         x_order = week_order
     else:
+        period_label_title = "Date"
         items_for_charts["period_date"] = items_for_charts["time_stamp"].dt.date
         items_for_charts["period_label"] = items_for_charts["time_stamp"].dt.strftime("%d %b %Y")
         orders_for_charts["period_date"] = orders_for_charts["time_stamp"].dt.date
         orders_for_charts["period_label"] = orders_for_charts["time_stamp"].dt.strftime("%d %b %Y")
-        period_label_title = "Date"
         x_order = (
             items_for_charts.drop_duplicates("period_date")
             .sort_values("period_date")["period_label"]
@@ -1116,17 +1148,26 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         .sum()
         .sort_values("item_sales", ascending=False)
     )
+    platform_color_map = {
+        "Shopee": "#f6a343",
+        "Tiktok": "#6ea8ff",
+        "Lazada": "#7fd6b5",
+        "LineShopping": "#f6d4a5",
+        "LineOA": "#f2e1c9",
+        "Facebook": "#d7e6ff",
+    }
     fig_platform = px.pie(
         platform_sales,
         values="item_sales",
         names="channel",
-        color_discrete_sequence=["#f9a64a", "#6aa5ff", "#9fdfc4", "#ffd9a2"],
+        color_discrete_map=platform_color_map,
         hole=0.35,
     )
     fig_platform.update_traces(
         textposition="inside",
         textinfo="percent+label",
         textfont_color=font_color,
+        marker=dict(line=dict(color="#ffffff", width=1.5)),
         insidetextorientation="horizontal",
     )
     fig_platform.update_layout(margin=dict(l=10, r=10, t=10, b=10), showlegend=True)
@@ -1198,7 +1239,7 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
     fig_customer_monthly.update_xaxes(categoryorder="array", categoryarray=month_order_used)
 
     top_products = (
-        items_for_charts.groupby("product_name", as_index=False)["item_sales"]
+        items_for_charts.groupby("product_rollup", as_index=False)["item_sales"]
         .sum()
         .sort_values("item_sales", ascending=False)
         .head(5)
@@ -1206,42 +1247,42 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
     fig_top_products = px.bar(
         top_products,
         x="item_sales",
-        y="product_name",
+        y="product_rollup",
         orientation="h",
         color_discrete_sequence=["#1d2b45"],
-        labels={"item_sales": "Sales", "product_name": "Product"},
+        labels={"item_sales": "Sales", "product_rollup": "Product"},
     )
     fig_top_products.update_layout(margin=dict(l=20, r=10, t=10, b=20))
     fig_top_products.update_yaxes(categoryorder="total ascending")
 
     product_sales = (
-        items_for_charts.groupby("product_name", as_index=False)["item_sales"].sum()
+        items_for_charts.groupby("product_rollup", as_index=False)["item_sales"].sum()
         .sort_values("item_sales", ascending=False)
         .head(8)
     )
     fig_product_sales = px.bar(
         product_sales,
         x="item_sales",
-        y="product_name",
+        y="product_rollup",
         orientation="h",
         color_discrete_sequence=["#7c5cff"],
-        labels={"item_sales": "Sales", "product_name": "Product"},
+        labels={"item_sales": "Sales", "product_rollup": "Product"},
     )
     fig_product_sales.update_layout(margin=dict(l=20, r=10, t=10, b=20))
     fig_product_sales.update_yaxes(categoryorder="total ascending")
 
     product_qty = (
-        items_for_charts.groupby("product_name", as_index=False)["quantity"].sum()
+        items_for_charts.groupby("product_rollup", as_index=False)["quantity"].sum()
         .sort_values("quantity", ascending=False)
         .head(8)
     )
     fig_product_qty = px.bar(
         product_qty,
         x="quantity",
-        y="product_name",
+        y="product_rollup",
         orientation="h",
         color_discrete_sequence=["#4cc38a"],
-        labels={"quantity": "Units", "product_name": "Product"},
+        labels={"quantity": "Units", "product_rollup": "Product"},
     )
     fig_product_qty.update_layout(margin=dict(l=20, r=10, t=10, b=20))
     fig_product_qty.update_yaxes(categoryorder="total ascending")
