@@ -32,24 +32,225 @@ MONTH_ORDER = list(MONTH_MAP.values())
 def make_mock_data():
     base_date = dt.date.today() - dt.timedelta(days=120)
     platforms = ["Shopee", "Lazada", "Tiktok", "LineOA", "Facebook", "LineShopping"]
-    product_groups = ["Skincare", "Haircare", "Supplements", "Accessories"]
-    products = [
-        ("P001", "Glow Serum", "Skincare"),
-        ("P002", "Hydra Cream", "Skincare"),
-        ("P003", "Silk Shampoo", "Haircare"),
-        ("P004", "Repair Conditioner", "Haircare"),
-        ("P005", "Vitamin C", "Supplements"),
-        ("P006", "Collagen Plus", "Supplements"),
-        ("P007", "Travel Pouch", "Accessories"),
-        ("P008", "Silk Headband", "Accessories"),
+    product_groups = [
+        "Cold brew",
+        "Cold drip",
+        "Duo set",
+        "Matcha",
+        "Bakery",
+        "Coffee Bean",
+        "Drip Bag",
+        "Others",
     ]
     order_statuses = ["Pending", "Shipped"]
     shipping_methods = ["EMS", "Flash"]
     purchase_types = ["Normal", "Package", "B2B", "Cold.Cafe", "Internal-Use"]
     order_types = ["Normal", "Claim"]
+    group_weights = {
+        "Cold brew": 40,
+        "Cold drip": 20,
+        "Duo set": 15,
+        "Matcha": 10,
+        "Bakery": 3,
+        "Coffee Bean": 5,
+        "Drip Bag": 2,
+        "Others": 5,
+    }
+
+    product_registry_by_id = {}
+    product_registry_by_name = {}
+    products_by_group = {group: [] for group in product_groups}
+    product_counter = 1
+
+    def add_product(name, group, price, size_ml=None, base_name=None, include_in_selection=True):
+        nonlocal product_counter
+        product_id = f"P{product_counter:03d}"
+        product_counter += 1
+        product = {
+            "product_id": product_id,
+            "product_name": name,
+            "product_category": group,
+            "group_name": group,
+            "price": price,
+            "size_ml": size_ml,
+            "base_name": base_name or name,
+        }
+        product_registry_by_id[product_id] = product
+        product_registry_by_name[name] = product
+        if include_in_selection:
+            products_by_group[group].append(product)
+        return product
+
+    def add_sized_products(base_name, group, sizes):
+        for size_label, price in sizes:
+            size_ml = 1000 if size_label == "1L" else int(size_label.replace("ml", ""))
+            name = f"{base_name} {size_label}"
+            add_product(name, group, price, size_ml=size_ml, base_name=base_name)
+
+    add_sized_products("Original", "Cold brew", [("200ml", 75), ("1L", 265)])
+    add_sized_products("Dark Edition", "Cold brew", [("200ml", 75), ("1L", 265)])
+    add_sized_products("Fruity Delight", "Cold brew", [("200ml", 75), ("1L", 279)])
+    add_sized_products("Milky", "Cold brew", [("200ml", 85), ("1L", 299)])
+    add_product("Peachful", "Cold brew", 420)
+    add_product("Saen Chai", "Cold brew", 420)
+    add_product("Namwhan", "Cold brew", 380)
+    add_product("Small Set", "Cold brew", 310)
+
+    add_sized_products("On the rock", "Cold drip", [("500ml", 325), ("1L", 550)])
+    add_sized_products("Monday Morning", "Cold drip", [("500ml", 335), ("1L", 590)])
+    add_sized_products("Natural wonder", "Cold drip", [("500ml", 420)])
+    add_sized_products("Vanilla Sundae", "Cold drip", [("500ml", 445)])
+    add_sized_products("Itim Kati", "Cold drip", [("500ml", 445)])
+
+    add_product("Duo set Original", "Duo set", 170)
+    add_product("Duo set Dark", "Duo set", 170)
+    add_product("Duo set Fruity", "Duo set", 170)
+    add_product("Duo set Milky", "Duo set", 170)
+
+    add_product("umiro", "Matcha", 650)
+    add_product("haruno", "Matcha", 650)
+    add_product("rinro", "Matcha", 1280)
+    add_product("asumi", "Matcha", 720)
+
+    add_product("Mini Crosaint", "Bakery", 75)
+
+    add_product("Original", "Coffee Bean", 235)
+    add_product("Dark", "Coffee Bean", 235)
+    add_product("Fruity", "Coffee Bean", 235)
+    add_product("Milky", "Coffee Bean", 255)
+
+    add_product("Coffee Drip D", "Drip Bag", 25)
+    add_product("Coffee Drip MD", "Drip Bag", 25)
+    add_product("Coffee Drip ML", "Drip Bag", 25)
+    add_product("Coffee Drip M", "Drip Bag", 35)
+
+    add_product("Tumbler", "Others", 95)
+    add_product("Lamoon cup", "Others", 350)
+
+    lamoon = product_registry_by_name["Lamoon cup"]
+    eligible_cold_brew = ["Original", "Dark Edition", "Fruity Delight", "Milky"]
+    eligible_cold_drip = ["On the rock", "Monday Morning", "Natural wonder", "Vanilla Sundae"]
+
+    for base_name in eligible_cold_brew:
+        product = product_registry_by_name[f"{base_name} 1L"]
+        duo_name = f"Duo set {base_name} 1L"
+        add_product(
+            duo_name,
+            "Duo set",
+            product["price"] + lamoon["price"],
+            size_ml=product["size_ml"],
+            base_name=base_name,
+            include_in_selection=False,
+        )
+
+    for base_name in eligible_cold_drip:
+        product = product_registry_by_name[f"{base_name} 500ml"]
+        duo_name = f"Duo set {base_name}"
+        add_product(
+            duo_name,
+            "Duo set",
+            product["price"] + lamoon["price"],
+            size_ml=product["size_ml"],
+            base_name=base_name,
+            include_in_selection=False,
+        )
 
     orders = []
     product_orders = []
+
+    group_names = list(group_weights.keys())
+    group_weight_values = [group_weights[name] for name in group_names]
+    eligible_channels = {"Shopee", "Tiktok", "LineShopping", "Lazada"}
+
+    def add_order_item(order_items, product, quantity):
+        entry = order_items.get(product["product_id"])
+        item_sales = product["price"] * quantity
+        if entry:
+            entry["quantity"] += quantity
+            entry["item_sales"] += item_sales
+        else:
+            order_items[product["product_id"]] = {
+                "product_id": product["product_id"],
+                "product_name": product["product_name"],
+                "product_category": product["product_category"],
+                "quantity": quantity,
+                "item_sales": item_sales,
+            }
+
+    def apply_duo_conversion(order_items, channel):
+        if channel not in eligible_channels:
+            return order_items
+
+        lamoon_entry = order_items.get(lamoon["product_id"])
+        if not lamoon_entry:
+            return order_items
+
+        lamoon_qty = lamoon_entry["quantity"]
+        eligible_ids = []
+
+        for entry in order_items.values():
+            product = product_registry_by_id[entry["product_id"]]
+            if (
+                product["group_name"] == "Cold brew"
+                and product["size_ml"] == 1000
+                and product["base_name"] in eligible_cold_brew
+            ):
+                eligible_ids.extend([product["product_id"]] * entry["quantity"])
+            elif (
+                product["group_name"] == "Cold drip"
+                and product["size_ml"] == 500
+                and product["base_name"] in eligible_cold_drip
+            ):
+                eligible_ids.extend([product["product_id"]] * entry["quantity"])
+
+        if not eligible_ids:
+            return order_items
+
+        random.shuffle(eligible_ids)
+        pairs = min(lamoon_qty, len(eligible_ids))
+
+        for index in range(pairs):
+            product_id = eligible_ids[index]
+            product = product_registry_by_id[product_id]
+            order_items[product_id]["quantity"] -= 1
+            order_items[product_id]["item_sales"] -= product["price"]
+            if order_items[product_id]["quantity"] <= 0:
+                del order_items[product_id]
+
+            lamoon_qty -= 1
+
+            if product["group_name"] == "Cold brew":
+                duo_name = f"Duo set {product['base_name']} 1L"
+            else:
+                duo_name = f"Duo set {product['base_name']}"
+            duo_product = product_registry_by_name[duo_name]
+            add_order_item(order_items, duo_product, 1)
+
+        if lamoon_qty <= 0:
+            del order_items[lamoon["product_id"]]
+        else:
+            lamoon_entry["quantity"] = lamoon_qty
+            lamoon_entry["item_sales"] = lamoon_qty * lamoon["price"]
+
+        return order_items
+
+    def pick_order_items():
+        order_items = {}
+        total_qty = 0
+        continuation_prob = 0.9
+        while total_qty < 10:
+            group = random.choices(group_names, weights=group_weight_values, k=1)[0]
+            product = random.choice(products_by_group[group])
+            add_order_item(order_items, product, 1)
+            total_qty += 1
+
+            if total_qty >= 10:
+                break
+            if random.random() >= continuation_prob:
+                break
+            continuation_prob = max(0.0, continuation_prob - 0.1)
+
+        return order_items
 
     for index in range(50):
         order_id = f"ORD{10001 + index}"
@@ -57,11 +258,18 @@ def make_mock_data():
         time_stamp = dt.datetime.combine(order_date, dt.time(hour=random.randint(8, 21)))
         shipdate = order_date + dt.timedelta(days=random.randint(0, 3))
         platform = random.choice(platforms)
-        group_name = random.choice(product_groups)
         customer_status = random.choices(["New", "Returning"], weights=[0.45, 0.55])[0]
-        items_count = random.randint(1, 3)
-        sales = round(random.uniform(300, 2200) * items_count, 2)
         order_status = random.choice(order_statuses)
+
+        order_items = pick_order_items()
+        order_items = apply_duo_conversion(order_items, platform)
+        total_sales = sum(item["item_sales"] for item in order_items.values())
+        group_sales = {}
+        for item in order_items.values():
+            group_sales[item["product_category"]] = (
+                group_sales.get(item["product_category"], 0) + item["item_sales"]
+            )
+        group_name = max(group_sales, key=group_sales.get) if group_sales else random.choice(product_groups)
 
         orders.append(
             {
@@ -86,7 +294,7 @@ def make_mock_data():
                 "shipping": random.choice(shipping_methods),
                 "tracking_number": f"TRK{random.randint(100000, 999999)}",
                 "remark": random.choice(["", "Gift wrap", "Call before delivery"]),
-                "sales": sales,
+                "sales": round(total_sales, 2),
                 "group_name": group_name,
                 "order_status": order_status,
                 "points_given": random.choice([True, False]),
@@ -101,9 +309,11 @@ def make_mock_data():
             }
         )
 
-        for item_index in range(items_count):
-            product_id, product_name, product_category = random.choice(products)
-            quantity = random.randint(1, 4)
+        for item_index, item in enumerate(order_items.values()):
+            product_id = item["product_id"]
+            product_name = item["product_name"]
+            product_category = item["product_category"]
+            quantity = item["quantity"]
             product_orders.append(
                 {
                     "id": f"POL{order_id}-{item_index + 1}",
@@ -112,7 +322,7 @@ def make_mock_data():
                     "product_name": product_name,
                     "product_category": product_category,
                     "quantity": quantity,
-                    "item_sales": round(random.uniform(80, 420) * quantity, 2),
+                    "item_sales": round(item["item_sales"], 2),
                     "packed": random.randint(0, quantity),
                     "packed_time_stamp": time_stamp + dt.timedelta(hours=random.randint(2, 8)),
                 }
@@ -401,6 +611,13 @@ app.layout = html.Div(
                                 dcc.Graph(id="customer-mix", className="graph"),
                             ],
                         ),
+                        html.Div(
+                            className="panel span-12",
+                            children=[
+                                html.Div("Top 5 Products", className="panel-title"),
+                                dcc.Graph(id="top-products", className="graph"),
+                            ],
+                        ),
                     ],
                 ),
             ],
@@ -626,6 +843,7 @@ def update_week_offset(prev_clicks, next_clicks, period_value, current_offset):
         Output("sales-platform", "figure"),
         Output("sales-group", "figure"),
         Output("customer-mix", "figure"),
+        Output("top-products", "figure"),
         Output("sales-trend-total", "figure"),
         Output("sales-platform-total", "figure"),
         Output("sales-group-total", "figure"),
@@ -834,6 +1052,23 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
 
     items_for_charts = filtered_items.copy()
 
+    top_products = (
+        filtered_items.groupby("product_name", as_index=False)["item_sales"]
+        .sum()
+        .sort_values("item_sales", ascending=False)
+        .head(5)
+    )
+    fig_top_products = px.bar(
+        top_products,
+        x="item_sales",
+        y="product_name",
+        orientation="h",
+        color_discrete_sequence=["#1d2b45"],
+        labels={"item_sales": "Sales", "product_name": "Product"},
+    )
+    fig_top_products.update_layout(margin=dict(l=20, r=10, t=10, b=20))
+    fig_top_products.update_yaxes(categoryorder="total ascending")
+
     product_sales = (
         items_for_charts.groupby("product_name", as_index=False)["item_sales"].sum()
         .sort_values("item_sales", ascending=False)
@@ -887,6 +1122,7 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         fig_platform,
         fig_group,
         fig_customer,
+        fig_top_products,
         fig_customer_monthly,
         fig_product_sales,
         fig_product_qty,
@@ -930,6 +1166,7 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         fig_platform,
         fig_group,
         fig_customer,
+        fig_top_products,
         fig_sales,
         fig_platform,
         fig_group,
