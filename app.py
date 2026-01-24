@@ -456,7 +456,6 @@ app.layout = html.Div(
                             options=[
                                 {"label": "Daily", "value": "daily"},
                                 {"label": "Monthly", "value": "monthly"},
-                                {"label": "All data", "value": "all"},
                                 {"label": "Custom", "value": "custom"},
                             ],
                             value="daily",
@@ -792,16 +791,6 @@ def toggle_date_controls(period_value, week_offset, current_start, current_end):
             current_end,
             {"display": "none"},
         )
-    if period_value == "all":
-        return (
-            {"display": "none"},
-            {"display": "none"},
-            "All data",
-            True,
-            min_date.isoformat(),
-            max_date.isoformat(),
-            {"display": "none"},
-        )
     if period_value == "daily":
         return (
             {"display": "block"},
@@ -970,9 +959,6 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
         year = selected_year or default_year
         start = dt.date(year, 1, 1)
         end = dt.date(year, 12, 31)
-    elif period == "all":
-        start = min_date
-        end = max_date
     elif period == "daily":
         latest = max_date
         offset = week_offset or 0
@@ -1098,8 +1084,6 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
     if period == "monthly":
         chosen_months = selected_months or MONTH_ORDER
         month_order_used = [m for m in MONTH_ORDER if m in chosen_months]
-    elif period == "all":
-        month_order_used = MONTH_ORDER
     else:
         month_order_used = MONTH_ORDER
 
@@ -1150,10 +1134,10 @@ def refresh_dashboard(period, start_date, end_date, selected_year, week_offset, 
     )
     platform_color_map = {
         "Shopee": "#f6a343",
-        "Tiktok": "#6ea8ff",
-        "Lazada": "#7fd6b5",
-        "LineShopping": "#f6d4a5",
-        "LineOA": "#f2e1c9",
+        "Tiktok": "#111111",
+        "Lazada": "#6ea8ff",
+        "LineShopping": "#7fd6b5",
+        "LineOA": "#5aa986",
         "Facebook": "#d7e6ff",
     }
     fig_platform = px.pie(
